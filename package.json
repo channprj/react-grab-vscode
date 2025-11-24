@@ -1,0 +1,105 @@
+{
+  "name": "react-grab-copilot",
+  "displayName": "React Grab for Copilot",
+  "description": "Bridge between react-grab browser selection and GitHub Copilot Chat in VSCode",
+  "version": "0.1.0",
+  "publisher": "react-grab",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "react",
+    "copilot",
+    "ai",
+    "code generation",
+    "react-grab"
+  ],
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/react-grab-vscode"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "react-grab-copilot.startServer",
+        "title": "React Grab: Start WebSocket Server"
+      },
+      {
+        "command": "react-grab-copilot.stopServer",
+        "title": "React Grab: Stop WebSocket Server"
+      },
+      {
+        "command": "react-grab-copilot.showStatus",
+        "title": "React Grab: Show Connection Status"
+      }
+    ],
+    "configuration": {
+      "title": "React Grab for Copilot",
+      "properties": {
+        "reactGrabCopilot.websocketPort": {
+          "type": "number",
+          "default": 8765,
+          "description": "Port for WebSocket server to communicate with browser extension"
+        },
+        "reactGrabCopilot.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start WebSocket server when VSCode opens"
+        },
+        "reactGrabCopilot.autoExecute": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically execute prompt in Copilot Chat"
+        },
+        "reactGrabCopilot.includeElementContext": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include React element context in the Copilot prompt"
+        },
+        "reactGrabCopilot.showNotifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for server events"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "pnpm run check && pnpm run build",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "check": "tsc --noEmit",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test",
+    "package": "pnpm vsce package --no-dependencies",
+    "publish": "pnpm vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.9",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "packageManager": "pnpm@10.22.0"
+}
