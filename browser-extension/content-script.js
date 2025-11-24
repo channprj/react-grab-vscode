@@ -18,6 +18,10 @@ const WS_URL = `ws://localhost:${WS_PORT}`;
 let isReactGrabActive = false;
 let hoveredElement = null;
 
+// Extension enabled state
+let extensionEnabled = true;
+const currentHost = window.location.hostname;
+
 // Initialize WebSocket connection
 function connectWebSocket() {
   try {
@@ -503,6 +507,9 @@ function showNotification(message, type = 'info') {
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
+  // Only work if extension is enabled
+  if (!extensionEnabled) return;
+
   // Cmd/Ctrl + Shift + G to activate crosshair mode
   if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
     e.preventDefault();
@@ -535,18 +542,75 @@ window.addEventListener('react-grab-element-captured', (event) => {
 // Check for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'checkConnection') {
-    sendResponse({ connected: isConnected });
+    sendResponse({ connected: isConnected, enabled: extensionEnabled });
+  } else if (request.type === 'toggleExtension') {
+    extensionEnabled = request.enabled;
+    handleExtensionToggle(request.enabled);
   }
   return true;
 });
 
+// Handle extension toggle
+function handleExtensionToggle(enabled) {
+  extensionEnabled = enabled;
+
+  if (!enabled) {
+    // Disable all features
+    if (isReactGrabActive) {
+      deactivateCrosshairMode();
+    }
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    showNotification('Extension disabled for this site', 'info');
+  } else {
+    // Re-enable features
+    if (!ws) {
+      connectWebSocket();
+    }
+    showNotification('Extension enabled for this site', 'success');
+  }
+}
+
+// Check if extension is enabled for this host
+async function checkHostSettings() {
+  try {
+    const settings = await chrome.storage.sync.get(['disabledHosts']);
+    const disabledHosts = settings.disabledHosts || [];
+
+    if (disabledHosts.includes(currentHost)) {
+      extensionEnabled = false;
+      console.log(`[React Grab Bridge] Extension disabled for ${currentHost}`);
+      return false;
+    }
+
+    extensionEnabled = true;
+    return true;
+  } catch (error) {
+    console.error('[React Grab Bridge] Error checking host settings:', error);
+    // Default to enabled if there's an error
+    extensionEnabled = true;
+    return true;
+  }
+}
+
 // Initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+async function initialize() {
+  // Check if extension is enabled for this host
+  const enabled = await checkHostSettings();
+
+  if (enabled) {
     connectWebSocket();
-  });
+  } else {
+    console.log('[React Grab Bridge] Extension disabled for this host');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialize);
 } else {
-  connectWebSocket();
+  initialize();
 }
 
 // Clean up on page unload

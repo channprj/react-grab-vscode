@@ -5,7 +5,8 @@
   "description": "Bridge between React Grab element selection and VSCode Copilot Chat",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
