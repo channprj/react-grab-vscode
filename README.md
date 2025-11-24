@@ -75,6 +75,8 @@ pnpm run package
 
 ### Chrome Extension
 
+> 📘 **Detailed Guide**: For comprehensive installation and troubleshooting guide, see [CHROME_EXTENSION_GUIDE.md](CHROME_EXTENSION_GUIDE.md)
+
 #### Option 1: Load from Source (Development)
 
 1. **Clone or Download the Repository**
