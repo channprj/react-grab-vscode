@@ -56,10 +56,12 @@ pnpm run package
 ### VSCode Extension
 
 1. **From Marketplace** (Coming Soon)
+
    - Search for "React Grab for Copilot" in VSCode Extensions
    - Click Install
 
 2. **From Source**
+
    ```bash
    # Build and install locally
    pnpm install
@@ -73,30 +75,137 @@ pnpm run package
 
 ### Chrome Extension
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (top right)
-3. Click "Load unpacked"
-4. Select the `browser-extension` folder from this repository
-5. The extension icon should appear in your toolbar
+#### Option 1: Load from Source (Development)
+
+1. **Clone or Download the Repository**
+
+   ```bash
+   git clone https://github.com/channprj/react-grab-vscode.git
+   cd react-grab-vscode
+   ```
+
+2. **Open Chrome Extensions Page**
+
+   - Open Chrome browser
+   - Navigate to `chrome://extensions/`
+   - Or use Menu: **⋮** → **More tools** → **Extensions**
+
+3. **Enable Developer Mode**
+
+   - Toggle the "Developer mode" switch in the top right corner
+   - You'll see additional buttons appear
+
+4. **Load the Extension**
+
+   - Click **"Load unpacked"** button
+   - Navigate to the cloned repository folder
+   - Select the `browser-extension` folder specifically:
+     ```
+     react-grab-vscode/
+     └── browser-extension/  ← Select this folder
+         ├── manifest.json
+         ├── content-script.js
+         ├── inject.js
+         ├── background.js
+         ├── popup.html
+         ├── popup.js
+         └── styles.css
+     ```
+   - Click "Select Folder"
+
+5. **Verify Installation**
+
+   - The extension "React Grab to Copilot Bridge" should appear in your extensions list
+   - You'll see an extension icon in the toolbar (puzzle piece icon area)
+   - Pin it for easy access by clicking the pin icon
+
+6. **Check Extension Status**
+   - Click the extension icon to see connection status
+   - It should show "Disconnected from VSCode" initially
+   - Once VSCode extension is running, it will show "Connected"
+
+#### Option 2: Load in Edge Browser
+
+1. **For Microsoft Edge Users**
+   - Navigate to `edge://extensions/`
+   - Enable "Developer mode" (left sidebar)
+   - Click "Load unpacked"
+   - Select the `browser-extension` folder
+   - Same process as Chrome
+
+#### Updating the Extension
+
+After making changes to the browser extension code:
+
+1. Go to `chrome://extensions/`
+2. Find "React Grab to Copilot Bridge"
+3. Click the **refresh** icon (↻) on the extension card
+4. Reload any open tabs to apply changes
+
+#### Troubleshooting Chrome Extension
+
+**Extension doesn't appear:**
+
+- Ensure you selected the `browser-extension` folder, not the root folder
+- Check for errors in the extension card (red error button)
+- Click "Errors" to see detailed error messages
+
+**Connection issues:**
+
+- Verify VSCode extension is running (check status bar)
+- Check if port 8765 is not blocked by firewall
+- Open Chrome DevTools Console (F12) and look for `[React Grab Bridge]` messages
+- Try reloading the extension and the web page
+
+**Debugging the Extension:**
+
+1. **Background Script (Service Worker)**
+
+   - Go to `chrome://extensions/`
+   - Click "Service Worker" link on the extension card
+   - Opens DevTools for background script
+
+2. **Content Script**
+
+   - Open DevTools on any webpage (F12)
+   - Check Console for content script logs
+   - Look for `[React Grab Bridge]` prefixed messages
+
+3. **Popup**
+   - Right-click the extension icon
+   - Select "Inspect popup"
+   - Opens DevTools for the popup
+
+#### File Permissions
+
+If you encounter permission issues, ensure the files have proper permissions:
+
+```bash
+chmod -R 755 browser-extension/
+```
 
 ## 📖 Usage
 
 ### Basic Workflow
 
 1. **Start VSCode Extension**
+
    - The WebSocket server starts automatically (port 8765)
    - Check the status bar for connection indicator
 
 2. **Open Your React App**
+
    - Navigate to your React application in Chrome/Edge
    - Ensure the browser extension is active
 
 3. **Select a Component**
+
    - Hold `Cmd` (Mac) or `Ctrl` (Windows/Linux)
    - Click on any React component in the page
    - A dialog will appear
 
 4. **Choose AI Assistant**
+
    - Select between GitHub Copilot or Claude Code
    - Enter your prompt about the selected component
 
@@ -119,13 +228,13 @@ Configure the extension in VSCode settings:
 }
 ```
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| `websocketPort` | Port for WebSocket server | 8765 |
-| `autoStart` | Start server automatically | true |
-| `autoExecute` | Auto-execute prompts in AI chat | true |
-| `includeElementContext` | Include component props in prompt | false |
-| `showNotifications` | Show notification messages | true |
+| Setting                 | Description                       | Default |
+| ----------------------- | --------------------------------- | ------- |
+| `websocketPort`         | Port for WebSocket server         | 8765    |
+| `autoStart`             | Start server automatically        | true    |
+| `autoExecute`           | Auto-execute prompts in AI chat   | true    |
+| `includeElementContext` | Include component props in prompt | false   |
+| `showNotifications`     | Show notification messages        | true    |
 
 ## 🏗️ Architecture
 
@@ -192,17 +301,18 @@ pnpm run package
 
 ### Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `pnpm run compile` | Build TypeScript files |
-| `pnpm run watch` | Watch mode for development |
-| `pnpm run package` | Create VSIX package |
-| `pnpm run lint` | Run ESLint |
-| `pnpm test` | Run tests |
+| Script             | Description                |
+| ------------------ | -------------------------- |
+| `pnpm run compile` | Build TypeScript files     |
+| `pnpm run watch`   | Watch mode for development |
+| `pnpm run package` | Create VSIX package        |
+| `pnpm run lint`    | Run ESLint                 |
+| `pnpm test`        | Run tests                  |
 
 ### Testing Locally
 
 1. **VSCode Extension**
+
    - Press `F5` in VSCode to launch debug instance
    - The extension will be active in the new window
 
@@ -249,13 +359,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🗺️ Roadmap
 
-- [ ] Support for Vue.js components
-- [ ] Multi-port configuration
-- [ ] Secure WebSocket with authentication
-- [ ] Browser DevTools panel integration
 - [ ] Support for more AI assistants
-- [ ] Component tree visualization
-- [ ] Batch prompt processing
 - [ ] History and saved prompts
 
 ## 📞 Support
