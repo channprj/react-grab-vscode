@@ -7,6 +7,7 @@ import { Logger } from './utils/logger';
 interface MessageFromBrowser {
   type: 'prompt' | 'ping' | 'element-context';
   prompt?: string;
+  target?: 'copilot' | 'claude'; // Which AI assistant to use
   elementInfo?: {
     tagName: string;
     className: string;
@@ -196,12 +197,16 @@ export class WebSocketServer {
       finalPrompt = `${message.prompt}\n\nContext:\n${context}`;
     }
 
+    // Determine which AI assistant to use
+    const target = message.target || 'copilot';
+    const targetName = target === 'claude' ? 'Claude Code' : 'Copilot Chat';
+
     try {
-      // Execute prompt in Copilot Chat
-      await this.copilotIntegration.executePrompt(finalPrompt);
+      // Execute prompt in the selected AI assistant
+      await this.copilotIntegration.executePrompt(finalPrompt, target);
 
       if (showNotifications) {
-        vscode.window.showInformationMessage('Prompt sent to Copilot Chat');
+        vscode.window.showInformationMessage(`Prompt sent to ${targetName}`);
       }
 
       this.sendMessage(ws, {
@@ -210,16 +215,16 @@ export class WebSocketServer {
         timestamp: Date.now(),
       });
     } catch (error) {
-      this.logger.error('Failed to execute prompt in Copilot', error);
+      this.logger.error(`Failed to execute prompt in ${targetName}`, error);
 
       this.sendMessage(ws, {
         type: 'error',
-        message: 'Failed to execute prompt in Copilot Chat',
+        message: `Failed to execute prompt in ${targetName}`,
         timestamp: Date.now(),
       });
 
       if (showNotifications) {
-        vscode.window.showErrorMessage('Failed to send prompt to Copilot Chat');
+        vscode.window.showErrorMessage(`Failed to send prompt to ${targetName}`);
       }
     }
   }
