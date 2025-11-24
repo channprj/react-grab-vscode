@@ -9,11 +9,13 @@ Bridge between React element selection in the browser and AI assistants (GitHub 
 
 ## 🌟 Features
 
-- **Visual Component Selection**: Select any React component directly in your browser using `Cmd/Ctrl + Click`
+- **Visual Component Selection**: Use react-grab's crosshair mode (`Alt+C`) to select any React component visually
 - **AI Integration**: Seamlessly send prompts to GitHub Copilot Chat or Claude Code
 - **Real-time Communication**: WebSocket-based real-time bridge between browser and VSCode
-- **Smart Context**: Optionally include component props and metadata in your prompts
+- **Smart Context**: Automatically extract component name, props, and JSX from react-grab
+- **Copy Functionality**: Copy component info or JSX to clipboard for manual prompt creation
 - **Status Indicators**: Visual feedback for connection status in both browser and VSCode
+- **Per-Site Toggle**: Enable/disable the extension per website
 
 ## 📋 Prerequisites
 
@@ -22,7 +24,7 @@ Bridge between React element selection in the browser and AI assistants (GitHub 
 - GitHub Copilot Chat extension (for Copilot features)
 - Claude Code extension (for Claude features)
 - Chrome or Edge browser
-- React application for testing
+- React application with **react-grab** installed (`npm install react-grab`)
 
 ## 🚀 Quick Start
 
@@ -190,31 +192,59 @@ chmod -R 755 browser-extension/
 
 ### Basic Workflow
 
-1. **Start VSCode Extension**
+1. **Install react-grab in Your React App**
+
+   ```bash
+   npm install react-grab
+   # or
+   pnpm add react-grab
+   ```
+
+   Then wrap your app with the `<Grab>` component:
+   ```jsx
+   import { Grab } from 'react-grab';
+
+   function App() {
+     return (
+       <Grab>
+         {/* Your app components */}
+       </Grab>
+     );
+   }
+   ```
+
+2. **Start VSCode Extension**
 
    - The WebSocket server starts automatically (port 9765)
    - Check the status bar for connection indicator
 
-2. **Open Your React App**
+3. **Open Your React App**
 
    - Navigate to your React application in Chrome/Edge
-   - Ensure the browser extension is active
+   - Ensure the browser extension is active (check extension icon)
 
-3. **Select a Component**
+4. **Activate react-grab's Crosshair Mode**
 
-   - Hold `Cmd` (Mac) or `Ctrl` (Windows/Linux)
+   - Press `Alt+C` (Option+C on Mac) to activate react-grab
+   - Your cursor will turn into a crosshair
+   - The extension will start monitoring for component selection
+
+5. **Select a Component**
+
    - Click on any React component in the page
-   - A dialog will appear
+   - react-grab will capture the component's JSX
+   - A dialog will appear with component information
 
-4. **Choose AI Assistant**
+6. **Choose Your Action**
 
-   - Select between GitHub Copilot or Claude Code
-   - Enter your prompt about the selected component
+   - **Copy Component Info**: Copy component details to clipboard for manual use
+   - **Copy JSX**: Copy the raw JSX to clipboard
+   - **Send to AI**: Choose between GitHub Copilot or Claude Code
 
-5. **Get AI Response**
+7. **Get AI Response**
+   - If sending to AI, enter your prompt about the component
    - The prompt is sent to VSCode
-   - The selected AI assistant opens with your prompt
-   - Get instant code suggestions and explanations
+   - The selected AI assistant opens with your prompt and component context
 
 ### Configuration
 
@@ -320,8 +350,8 @@ pnpm run package
 
 2. **Chrome Extension**
    - Load unpacked extension from `browser-extension` folder
-   - Open any React application
-   - Test component selection with `Cmd/Ctrl + Click`
+   - Open any React application with react-grab installed
+   - Test component selection with `Alt+C` (Option+C on Mac)
 
 ## 🤝 Contributing
 
@@ -356,7 +386,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🐛 Known Issues
 
 - WebSocket connection may fail if port 9765 is in use
-- React DevTools must be installed for optimal component detection
+- react-grab must be installed and properly configured in your React app
+- The extension monitors clipboard changes to detect react-grab selections
 - Some React versions may have limited component name detection
 
 ## 🗺️ Roadmap
@@ -381,10 +412,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Component Not Detected
 
-1. Ensure React DevTools is installed
-2. Check if the app uses React 16.8+
-3. Try refreshing the page
-4. Verify element is a React component
+1. Ensure react-grab is installed in your React app (`npm install react-grab`)
+2. Verify your app is wrapped with the `<Grab>` component from react-grab
+3. Press Alt+C (Option+C on Mac) to activate react-grab's crosshair mode
+4. Check browser console for `[React Grab Bridge]` messages
+5. Try refreshing the page and reactivating
 
 ### AI Assistant Not Responding
 

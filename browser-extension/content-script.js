@@ -500,18 +500,109 @@ function showNotification(message, type = 'info') {
 }
 
 /**
- * Listen for react-grab activation
- * When user presses Option/Alt + C, react-grab activates
+ * Trigger react-grab activation
+ */
+function activateReactGrab() {
+  console.log('[React Grab Bridge] Attempting to activate react-grab...');
+
+  // Method 1: Dispatch the actual Alt+C keyboard event that react-grab listens to
+  const event = new KeyboardEvent('keydown', {
+    key: 'c',
+    code: 'KeyC',
+    altKey: true,
+    bubbles: true,
+    cancelable: true,
+    composed: true
+  });
+
+  // Dispatch to document
+  document.dispatchEvent(event);
+
+  // Also dispatch to window and body
+  window.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'c',
+    code: 'KeyC',
+    altKey: true,
+    bubbles: true,
+    cancelable: true,
+    composed: true
+  }));
+
+  document.body.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'c',
+    code: 'KeyC',
+    altKey: true,
+    bubbles: true,
+    cancelable: true,
+    composed: true
+  }));
+
+  // Method 2: Try to access react-grab functions directly (as fallback)
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+      // Try different ways to activate react-grab
+
+      // Check for ReactGrab global
+      if (window.ReactGrab) {
+        console.log('[React Grab] Found ReactGrab global');
+        if (typeof window.ReactGrab.grab === 'function') {
+          window.ReactGrab.grab();
+          console.log('[React Grab] Called ReactGrab.grab()');
+        } else if (typeof window.ReactGrab.activate === 'function') {
+          window.ReactGrab.activate();
+          console.log('[React Grab] Called ReactGrab.activate()');
+        }
+      }
+
+      // Check for grab function directly on window
+      if (typeof window.grab === 'function') {
+        window.grab();
+        console.log('[React Grab] Called window.grab()');
+      }
+
+      // Try to trigger via React DevTools if available
+      if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+        console.log('[React Grab] React DevTools detected');
+      }
+
+      // Check if react-grab added any data attributes
+      const grabEnabled = document.querySelector('[data-grab-enabled], [data-react-grab-active]');
+      if (grabEnabled) {
+        console.log('[React Grab] Found grab-enabled elements');
+      }
+    })();
+  `;
+  document.documentElement.appendChild(script);
+  script.remove();
+
+  // Method 3: Try to trigger via custom event
+  const customEvent = new CustomEvent('react-grab-activate', {
+    detail: { activate: true },
+    bubbles: true
+  });
+  document.dispatchEvent(customEvent);
+}
+
+/**
+ * Listen for keyboard shortcuts
  */
 document.addEventListener('keydown', (e) => {
   if (!extensionEnabled) return;
 
-  // Detect react-grab activation shortcut (Option/Alt + C)
+  // Option/Alt + C - Monitor for react-grab activation
+  // Note: We don't preventDefault() here because react-grab needs to receive this event too
   if (e.altKey && e.key.toLowerCase() === 'c') {
-    console.log('[React Grab Bridge] Detected react-grab activation key');
+    console.log('[React Grab Bridge] Detected Alt+C - Starting clipboard monitoring for react-grab');
 
     // Start monitoring clipboard for react-grab output
-    startClipboardMonitoring();
+    // We delay slightly to give react-grab time to activate
+    setTimeout(() => {
+      startClipboardMonitoring();
+    }, 100);
+
+    // Show instruction
+    showNotification('React-grab mode active. Click any element to capture it.', 'info');
 
     // Auto-stop after 30 seconds if nothing happens
     setTimeout(() => {
@@ -521,19 +612,7 @@ document.addEventListener('keydown', (e) => {
       }
     }, 30000);
   }
-
-  // Manual trigger with Cmd/Ctrl + Shift + G
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
-    e.preventDefault();
-
-    if (!isMonitoringClipboard) {
-      startClipboardMonitoring();
-      showNotification('Listening for react-grab. Press Alt+C in your React app to select an element.', 'info');
-    } else {
-      stopClipboardMonitoring();
-    }
-  }
-});
+}, true); // Use capture phase to detect the event early
 
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -588,6 +667,53 @@ async function checkHostSettings() {
   }
 }
 
+// Check if react-grab is available on the page
+function checkReactGrabAvailability() {
+  const script = document.createElement('script');
+  script.textContent = `
+    (function() {
+      let hasReactGrab = false;
+
+      // Check various ways react-grab might be exposed
+      if (window.ReactGrab) {
+        hasReactGrab = true;
+        console.log('[React Grab Bridge] ✅ react-grab detected via window.ReactGrab');
+      } else if (window.grab) {
+        hasReactGrab = true;
+        console.log('[React Grab Bridge] ✅ react-grab detected via window.grab');
+      } else {
+        // Check if React components are using react-grab
+        const reactRoot = document.querySelector('#root');
+        if (reactRoot && reactRoot._reactRootContainer) {
+          console.log('[React Grab Bridge] React app detected, react-grab may be available internally');
+          hasReactGrab = 'possible';
+        }
+      }
+
+      // Send message to content script
+      window.postMessage({
+        type: 'react-grab-check',
+        hasReactGrab: hasReactGrab
+      }, '*');
+    })();
+  `;
+  document.documentElement.appendChild(script);
+  script.remove();
+}
+
+// Listen for react-grab availability check
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'react-grab-check') {
+    if (event.data.hasReactGrab === true) {
+      console.log('[React Grab Bridge] react-grab is available on this page');
+    } else if (event.data.hasReactGrab === 'possible') {
+      console.log('[React Grab Bridge] React app detected, react-grab may be available');
+    } else {
+      console.log('[React Grab Bridge] react-grab not detected. Make sure to install it: npm install react-grab');
+    }
+  }
+});
+
 // Initialize
 async function initialize() {
   console.log('[React Grab Bridge] Initializing...');
@@ -597,6 +723,9 @@ async function initialize() {
 
   if (enabled) {
     connectWebSocket();
+
+    // Check for react-grab availability
+    setTimeout(checkReactGrabAvailability, 1000);
 
     // Show instructions
     console.log(`

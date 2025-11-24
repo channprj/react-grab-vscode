@@ -11,7 +11,8 @@
       "Bash(pnpm run package:*)",
       "Bash(git push:*)",
       "Bash(convert:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(open:*)"
     ],
     "deny": [],
     "ask": []
