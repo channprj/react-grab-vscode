@@ -155,7 +155,7 @@ After making changes to the browser extension code:
 **Connection issues:**
 
 - Verify VSCode extension is running (check status bar)
-- Check if port 8765 is not blocked by firewall
+- Check if port 9765 is not blocked by firewall
 - Open Chrome DevTools Console (F12) and look for `[React Grab Bridge]` messages
 - Try reloading the extension and the web page
 
@@ -192,7 +192,7 @@ chmod -R 755 browser-extension/
 
 1. **Start VSCode Extension**
 
-   - The WebSocket server starts automatically (port 8765)
+   - The WebSocket server starts automatically (port 9765)
    - Check the status bar for connection indicator
 
 2. **Open Your React App**
@@ -222,7 +222,7 @@ Configure the extension in VSCode settings:
 
 ```json
 {
-  "reactGrabCopilot.websocketPort": 8765,
+  "reactGrabCopilot.websocketPort": 9765,
   "reactGrabCopilot.autoStart": true,
   "reactGrabCopilot.autoExecute": true,
   "reactGrabCopilot.includeElementContext": false,
@@ -232,7 +232,7 @@ Configure the extension in VSCode settings:
 
 | Setting                 | Description                       | Default |
 | ----------------------- | --------------------------------- | ------- |
-| `websocketPort`         | Port for WebSocket server         | 8765    |
+| `websocketPort`         | Port for WebSocket server         | 9765    |
 | `autoStart`             | Start server automatically        | true    |
 | `autoExecute`           | Auto-execute prompts in AI chat   | true    |
 | `includeElementContext` | Include component props in prompt | false   |
@@ -355,7 +355,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🐛 Known Issues
 
-- WebSocket connection may fail if port 8765 is in use
+- WebSocket connection may fail if port 9765 is in use
 - React DevTools must be installed for optimal component detection
 - Some React versions may have limited component name detection
 
@@ -374,7 +374,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### WebSocket Connection Failed
 
-1. Check if port 8765 is available
+1. Check if port 9765 is available
 2. Restart VSCode extension
 3. Check firewall settings
 4. Verify browser extension is installed

@@ -2,6 +2,23 @@
  * Styles for React Grab to Copilot/Claude Bridge
  */
 
+/* Crosshair cursor for react-grab mode */
+.react-grab-crosshair-mode {
+  cursor: crosshair !important;
+}
+
+.react-grab-crosshair-mode * {
+  cursor: crosshair !important;
+}
+
+/* Highlight element on hover in react-grab mode */
+.react-grab-highlight {
+  outline: 2px solid #0969da !important;
+  outline-offset: 2px !important;
+  background-color: rgba(9, 105, 218, 0.1) !important;
+  transition: all 0.2s ease !important;
+}
+
 /* Dialog styles */
 .react-grab-dialog {
   position: fixed;

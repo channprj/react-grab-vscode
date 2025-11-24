@@ -22,7 +22,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Initialize WebSocket server
   const config = vscode.workspace.getConfiguration('reactGrabCopilot');
-  const port = config.get<number>('websocketPort', 8765);
+  const port = config.get<number>('websocketPort', 9765);
   const autoStart = config.get<boolean>('autoStart', true);
 
   websocketServer = new WebSocketServer(port, logger, copilotIntegration, statusBarManager);
@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('reactGrabCopilot')) {
         const newConfig = vscode.workspace.getConfiguration('reactGrabCopilot');
-        const newPort = newConfig.get<number>('websocketPort', 8765);
+        const newPort = newConfig.get<number>('websocketPort', 9765);
 
         if (websocketServer && websocketServer.isRunning()) {
           vscode.window

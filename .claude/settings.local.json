@@ -10,7 +10,8 @@
       "Bash(pnpm run compile:*)",
       "Bash(pnpm run package:*)",
       "Bash(git push:*)",
-      "Bash(convert:*)"
+      "Bash(convert:*)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "ask": []

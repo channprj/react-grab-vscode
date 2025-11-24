@@ -47,7 +47,7 @@
       "properties": {
         "reactGrabCopilot.websocketPort": {
           "type": "number",
-          "default": 8765,
+          "default": 9765,
           "description": "Port for WebSocket server to communicate with browser extension"
         },
         "reactGrabCopilot.autoStart": {
