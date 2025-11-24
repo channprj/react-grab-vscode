@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Grab Test App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .instructions {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    .instructions h2 {
+      margin-top: 0;
+    }
+    .instructions code {
+      background: rgba(255,255,255,0.2);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .components {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .card {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+    .card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .button {
+      background: #0969da;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .button:hover {
+      background: #0860ca;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #f0f7ff;
+      color: #0969da;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    #react-grab-status {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: #2da44e;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <h2>React Grab Test App</h2>
+    <p>This is a test React app with react-grab installed.</p>
+    <ol>
+      <li>Make sure the Chrome Extension is installed and enabled</li>
+      <li>Press <code>Alt+C</code> (Option+C on Mac) to activate react-grab's crosshair mode</li>
+      <li>Click any component below to capture it</li>
+      <li>The Chrome Extension will show a dialog with component info</li>
+    </ol>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- React and ReactDOM from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- react-grab from CDN -->
+  <script src="https://unpkg.com/react-grab@latest/dist/index.umd.js"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+    const { Grab } = ReactGrab;
+
+    // Sample components
+    function UserCard({ name, role, email, active }) {
+      return (
+        <div className="card">
+          <h3>{name}</h3>
+          <p>{role}</p>
+          <p>{email}</p>
+          <div>
+            <span className="badge">{active ? 'Active' : 'Inactive'}</span>
+          </div>
+          <button className="button">View Profile</button>
+        </div>
+      );
+    }
+
+    function Counter() {
+      const [count, setCount] = useState(0);
+
+      return (
+        <div className="card">
+          <h3>Counter Component</h3>
+          <p>Count: {count}</p>
+          <button className="button" onClick={() => setCount(count + 1)}>
+            Increment
+          </button>
+        </div>
+      );
+    }
+
+    function TodoItem({ text, completed }) {
+      return (
+        <div className="card">
+          <h3>Todo Item</h3>
+          <p style={{ textDecoration: completed ? 'line-through' : 'none' }}>
+            {text}
+          </p>
+          <button className="button">
+            {completed ? 'Undo' : 'Complete'}
+          </button>
+        </div>
+      );
+    }
+
+    function App() {
+      return (
+        <Grab>
+          <div>
+            <h1>Sample React Components</h1>
+            <p>Press <strong>Alt+C</strong> to activate react-grab, then click any component below:</p>
+
+            <div className="components">
+              <UserCard
+                name="Alice Johnson"
+                role="Software Engineer"
+                email="alice@example.com"
+                active={true}
+              />
+
+              <UserCard
+                name="Bob Smith"
+                role="Product Manager"
+                email="bob@example.com"
+                active={false}
+              />
+
+              <Counter />
+
+              <TodoItem
+                text="Learn react-grab"
+                completed={false}
+              />
+
+              <TodoItem
+                text="Build Chrome Extension"
+                completed={true}
+              />
+
+              <div className="card">
+                <h3>Settings Panel</h3>
+                <p>Configure your preferences</p>
+                <label>
+                  <input type="checkbox" /> Enable notifications
+                </label>
+                <br />
+                <label>
+                  <input type="checkbox" checked /> Dark mode
+                </label>
+                <br />
+                <button className="button">Save Settings</button>
+              </div>
+            </div>
+          </div>
+        </Grab>
+      );
+    }
+
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
+    // Show react-grab status
+    const status = document.createElement('div');
+    status.id = 'react-grab-status';
+    status.textContent = '✅ react-grab is active';
+    document.body.appendChild(status);
+  </script>
+
+  <!-- Babel for JSX transformation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>

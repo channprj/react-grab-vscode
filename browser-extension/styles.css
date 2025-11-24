@@ -2,21 +2,22 @@
  * Styles for React Grab to Copilot/Claude Bridge
  */
 
-/* Crosshair cursor for react-grab mode */
-.react-grab-crosshair-mode {
-  cursor: crosshair !important;
+/* Actions section for copy buttons */
+.react-grab-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
 }
 
-.react-grab-crosshair-mode * {
-  cursor: crosshair !important;
+.react-grab-actions .react-grab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
 }
 
-/* Highlight element on hover in react-grab mode */
-.react-grab-highlight {
-  outline: 2px solid #0969da !important;
-  outline-offset: 2px !important;
-  background-color: rgba(9, 105, 218, 0.1) !important;
-  transition: all 0.2s ease !important;
+/* AI section separator */
+.react-grab-ai-section {
+  margin-top: 12px;
 }
 
 /* Dialog styles */
