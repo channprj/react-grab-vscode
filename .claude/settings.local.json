@@ -6,7 +6,9 @@
       "Bash(pnpm init)",
       "Bash(pnpm install)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(pnpm run compile:*)",
+      "Bash(pnpm run package:*)"
     ],
     "deny": [],
     "ask": []

@@ -19,7 +19,6 @@
     "code generation",
     "react-grab"
   ],
-  "icon": "resources/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/yourusername/react-grab-vscode"
