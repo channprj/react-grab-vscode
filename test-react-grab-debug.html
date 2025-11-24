@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React Grab Debug Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 40px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-component {
+      padding: 20px;
+      margin: 20px;
+      border: 2px solid #0969da;
+      border-radius: 8px;
+      background: #f0f7ff;
+    }
+    #debug {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #000;
+      color: #0f0;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      max-width: 400px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    .instructions {
+      background: #fffbeb;
+      border: 1px solid #fb8500;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions">
+    <h2>React Grab Keyboard Test</h2>
+    <p>Try these keyboard shortcuts to see what activates react-grab:</p>
+    <ul>
+      <li><strong>Cmd/Ctrl + C:</strong> Hold and click (According to docs)</li>
+      <li><strong>Alt + C:</strong> Press to activate (What we thought)</li>
+      <li><strong>Option + C:</strong> Mac specific</li>
+    </ul>
+    <p>Check the debug console at the bottom right to see what's happening.</p>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- Debug console -->
+  <div id="debug">
+    <div>Debug Console:</div>
+  </div>
+
+  <!-- React and ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!-- react-grab from CDN -->
+  <script src="https://unpkg.com/react-grab@latest/dist/index.umd.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { Grab } = ReactGrab;
+
+    const debugLog = (msg) => {
+      const debug = document.getElementById('debug');
+      const entry = document.createElement('div');
+      const time = new Date().toLocaleTimeString();
+      entry.textContent = `[${time}] ${msg}`;
+      debug.appendChild(entry);
+      debug.scrollTop = debug.scrollHeight;
+      console.log(`[React Grab Debug] ${msg}`);
+    };
+
+    function TestComponent({ name, color }) {
+      return (
+        <div className="test-component" style={{ background: color }}>
+          <h3>{name}</h3>
+          <p>This is a test component</p>
+          <button onClick={() => debugLog(`Button clicked in ${name}`)}>
+            Click me
+          </button>
+        </div>
+      );
+    }
+
+    function App() {
+      useEffect(() => {
+        debugLog('App mounted');
+
+        // Check if react-grab is available
+        if (window.ReactGrab) {
+          debugLog('ReactGrab found on window');
+          console.log('ReactGrab object:', window.ReactGrab);
+        }
+
+        // Listen for all keyboard events to debug
+        const handleKeyDown = (e) => {
+          const keys = [];
+          if (e.metaKey) keys.push('Cmd');
+          if (e.ctrlKey) keys.push('Ctrl');
+          if (e.altKey) keys.push('Alt');
+          if (e.shiftKey) keys.push('Shift');
+          keys.push(e.key);
+
+          debugLog(`KeyDown: ${keys.join('+')}`);
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Try to access react-grab API
+        if (window.ReactGrab && window.ReactGrab.api) {
+          debugLog('ReactGrab API found');
+          console.log('API methods:', Object.keys(window.ReactGrab.api));
+        }
+
+        // Monitor for cursor changes
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.attributeName === 'style') {
+              const cursor = document.body.style.cursor;
+              if (cursor && cursor !== 'auto') {
+                debugLog(`Cursor changed to: ${cursor}`);
+              }
+            }
+          });
+        });
+
+        observer.observe(document.body, {
+          attributes: true,
+          attributeFilter: ['style']
+        });
+
+        return () => {
+          document.removeEventListener('keydown', handleKeyDown);
+          observer.disconnect();
+        };
+      }, []);
+
+      return (
+        <Grab>
+          <div>
+            <h1>React Grab Debug Test</h1>
+            <TestComponent name="Component A" color="#e6f3ff" />
+            <TestComponent name="Component B" color="#f0e6ff" />
+            <TestComponent name="Component C" color="#ffe6e6" />
+          </div>
+        </Grab>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+
+    // After a short delay, check what's available globally
+    setTimeout(() => {
+      debugLog('=== Global check after 1s ===');
+
+      // Check for grab function
+      if (typeof window.grab === 'function') {
+        debugLog('window.grab() function found');
+      }
+
+      // Check ReactGrab exports
+      if (window.ReactGrab) {
+        debugLog('ReactGrab exports: ' + Object.keys(window.ReactGrab).join(', '));
+      }
+
+      // Try to manually activate if API is available
+      if (window.ReactGrab && window.ReactGrab.activate) {
+        debugLog('Found ReactGrab.activate() - you can call it manually');
+      }
+    }, 1000);
+  </script>
+
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>

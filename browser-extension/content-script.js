@@ -499,90 +499,12 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
+// Removed activateReactGrab function as react-grab uses Cmd/Ctrl+C hold & click, not programmatic activation
+
 /**
- * Trigger react-grab activation
+ * Track if Cmd/Ctrl+C is being held
  */
-function activateReactGrab() {
-  console.log('[React Grab Bridge] Attempting to activate react-grab...');
-
-  // Method 1: Dispatch the actual Alt+C keyboard event that react-grab listens to
-  const event = new KeyboardEvent('keydown', {
-    key: 'c',
-    code: 'KeyC',
-    altKey: true,
-    bubbles: true,
-    cancelable: true,
-    composed: true
-  });
-
-  // Dispatch to document
-  document.dispatchEvent(event);
-
-  // Also dispatch to window and body
-  window.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'c',
-    code: 'KeyC',
-    altKey: true,
-    bubbles: true,
-    cancelable: true,
-    composed: true
-  }));
-
-  document.body.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'c',
-    code: 'KeyC',
-    altKey: true,
-    bubbles: true,
-    cancelable: true,
-    composed: true
-  }));
-
-  // Method 2: Try to access react-grab functions directly (as fallback)
-  const script = document.createElement('script');
-  script.textContent = `
-    (function() {
-      // Try different ways to activate react-grab
-
-      // Check for ReactGrab global
-      if (window.ReactGrab) {
-        console.log('[React Grab] Found ReactGrab global');
-        if (typeof window.ReactGrab.grab === 'function') {
-          window.ReactGrab.grab();
-          console.log('[React Grab] Called ReactGrab.grab()');
-        } else if (typeof window.ReactGrab.activate === 'function') {
-          window.ReactGrab.activate();
-          console.log('[React Grab] Called ReactGrab.activate()');
-        }
-      }
-
-      // Check for grab function directly on window
-      if (typeof window.grab === 'function') {
-        window.grab();
-        console.log('[React Grab] Called window.grab()');
-      }
-
-      // Try to trigger via React DevTools if available
-      if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-        console.log('[React Grab] React DevTools detected');
-      }
-
-      // Check if react-grab added any data attributes
-      const grabEnabled = document.querySelector('[data-grab-enabled], [data-react-grab-active]');
-      if (grabEnabled) {
-        console.log('[React Grab] Found grab-enabled elements');
-      }
-    })();
-  `;
-  document.documentElement.appendChild(script);
-  script.remove();
-
-  // Method 3: Try to trigger via custom event
-  const customEvent = new CustomEvent('react-grab-activate', {
-    detail: { activate: true },
-    bubbles: true
-  });
-  document.dispatchEvent(customEvent);
-}
+let isGrabKeyHeld = false;
 
 /**
  * Listen for keyboard shortcuts
@@ -590,29 +512,48 @@ function activateReactGrab() {
 document.addEventListener('keydown', (e) => {
   if (!extensionEnabled) return;
 
-  // Option/Alt + C - Monitor for react-grab activation
-  // Note: We don't preventDefault() here because react-grab needs to receive this event too
-  if (e.altKey && e.key.toLowerCase() === 'c') {
-    console.log('[React Grab Bridge] Detected Alt+C - Starting clipboard monitoring for react-grab');
+  // Cmd+C (Mac) or Ctrl+C (Windows/Linux) - Monitor for react-grab activation
+  // react-grab works by holding Cmd/Ctrl+C and clicking on elements
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+    if (!isGrabKeyHeld) {
+      isGrabKeyHeld = true;
+      console.log('[React Grab Bridge] Detected Cmd/Ctrl+C - Starting clipboard monitoring for react-grab');
 
-    // Start monitoring clipboard for react-grab output
-    // We delay slightly to give react-grab time to activate
-    setTimeout(() => {
+      // Start monitoring clipboard for react-grab output
       startClipboardMonitoring();
-    }, 100);
 
-    // Show instruction
-    showNotification('React-grab mode active. Click any element to capture it.', 'info');
+      // Show instruction
+      showNotification('Hold Cmd/Ctrl+C and click any element to capture it', 'info');
 
-    // Auto-stop after 30 seconds if nothing happens
-    setTimeout(() => {
-      if (isMonitoringClipboard) {
-        stopClipboardMonitoring();
-        showNotification('React-grab listening timeout', 'info');
-      }
-    }, 30000);
+      // Auto-stop after 10 seconds if nothing happens
+      setTimeout(() => {
+        if (isMonitoringClipboard && isGrabKeyHeld) {
+          stopClipboardMonitoring();
+          showNotification('React-grab listening timeout', 'info');
+          isGrabKeyHeld = false;
+        }
+      }, 10000);
+    }
   }
 }, true); // Use capture phase to detect the event early
+
+// Listen for key release to stop monitoring
+document.addEventListener('keyup', (e) => {
+  if (!extensionEnabled) return;
+
+  // When Cmd/Ctrl or C is released, stop monitoring
+  if (isGrabKeyHeld && (e.key === 'Meta' || e.key === 'Control' || e.key.toLowerCase() === 'c')) {
+    console.log('[React Grab Bridge] Cmd/Ctrl+C released');
+    isGrabKeyHeld = false;
+
+    // Keep monitoring for a bit longer in case the user already clicked
+    setTimeout(() => {
+      if (!isGrabKeyHeld && isMonitoringClipboard) {
+        stopClipboardMonitoring();
+      }
+    }, 2000);
+  }
+}, true);
 
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -735,10 +676,10 @@ async function initialize() {
 ║ 1. Make sure react-grab is installed in your    ║
 ║    React app: npm install react-grab            ║
 ║                                                  ║
-║ 2. Press Alt+C (Option+C on Mac) to activate    ║
-║    react-grab's crosshair mode                  ║
+║ 2. Hold Cmd+C (Mac) or Ctrl+C (Windows/Linux)   ║
 ║                                                  ║
-║ 3. Click any React component to capture it      ║
+║ 3. While holding, click any React component     ║
+║    to capture it                                ║
 ║                                                  ║
 ║ 4. Use the dialog to copy info or send to AI    ║
 ╚══════════════════════════════════════════════════╝

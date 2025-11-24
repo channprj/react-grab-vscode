@@ -9,7 +9,7 @@ Bridge between React element selection in the browser and AI assistants (GitHub 
 
 ## 🌟 Features
 
-- **Visual Component Selection**: Use react-grab's crosshair mode (`Alt+C`) to select any React component visually
+- **Visual Component Selection**: Hold `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux) and click to select React components with react-grab
 - **AI Integration**: Seamlessly send prompts to GitHub Copilot Chat or Claude Code
 - **Real-time Communication**: WebSocket-based real-time bridge between browser and VSCode
 - **Smart Context**: Automatically extract component name, props, and JSX from react-grab
@@ -223,25 +223,21 @@ chmod -R 755 browser-extension/
    - Navigate to your React application in Chrome/Edge
    - Ensure the browser extension is active (check extension icon)
 
-4. **Activate react-grab's Crosshair Mode**
+4. **Select a Component with react-grab**
 
-   - Press `Alt+C` (Option+C on Mac) to activate react-grab
-   - Your cursor will turn into a crosshair
-   - The extension will start monitoring for component selection
-
-5. **Select a Component**
-
-   - Click on any React component in the page
+   - Hold `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux)
+   - While holding, click on any React component
+   - Your cursor will turn into a crosshair when hovering over selectable components
    - react-grab will capture the component's JSX
    - A dialog will appear with component information
 
-6. **Choose Your Action**
+5. **Choose Your Action**
 
    - **Copy Component Info**: Copy component details to clipboard for manual use
    - **Copy JSX**: Copy the raw JSX to clipboard
    - **Send to AI**: Choose between GitHub Copilot or Claude Code
 
-7. **Get AI Response**
+6. **Get AI Response**
    - If sending to AI, enter your prompt about the component
    - The prompt is sent to VSCode
    - The selected AI assistant opens with your prompt and component context
@@ -351,7 +347,7 @@ pnpm run package
 2. **Chrome Extension**
    - Load unpacked extension from `browser-extension` folder
    - Open any React application with react-grab installed
-   - Test component selection with `Alt+C` (Option+C on Mac)
+   - Test component selection by holding `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux) and clicking
 
 ## 🤝 Contributing
 
@@ -414,9 +410,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 1. Ensure react-grab is installed in your React app (`npm install react-grab`)
 2. Verify your app is wrapped with the `<Grab>` component from react-grab
-3. Press Alt+C (Option+C on Mac) to activate react-grab's crosshair mode
+3. Hold Cmd+C (Mac) or Ctrl+C (Windows/Linux) and click on a component
 4. Check browser console for `[React Grab Bridge]` messages
-5. Try refreshing the page and reactivating
+5. Try refreshing the page and trying again
 
 ### AI Assistant Not Responding
 
