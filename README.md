@@ -5,7 +5,7 @@
 
 Bridge between React element selection in the browser and AI assistants (GitHub Copilot & Claude Code) in VSCode.
 
-<video src="/Users/channprj/Downloads/claude-code-usage.webm" width="600"></video>
+<video src="https://github.com/user-attachments/assets/ca4e3081-3c89-47e1-aabb-2e02b2a744f8" width="600"></video>
 
 <video src="https://github.com/user-attachments/assets/25210e8d-9ad2-44cc-ad0c-540346d53d82" width="600"></video>
 
