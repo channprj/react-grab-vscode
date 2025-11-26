@@ -159,9 +159,57 @@
 }
 
 /* Sections */
+.react-grab-workspace-section,
 .react-grab-context-section,
 .react-grab-prompt-section {
   margin-bottom: 16px;
+}
+
+/* Workspace Selector */
+.react-grab-workspace-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f0f7ff;
+  border-radius: 8px;
+  border: 1px solid #c8e1ff;
+}
+
+.react-grab-workspace-section label {
+  margin-bottom: 0 !important;
+  font-size: 13px;
+  color: #555;
+}
+
+.react-grab-workspace-select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d1d9e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'SF Mono', Monaco, monospace;
+  background: white;
+  cursor: pointer;
+}
+
+.react-grab-workspace-select:focus {
+  outline: none;
+  border-color: #0969da;
+  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.1);
+}
+
+.react-grab-workspace-name {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0969da;
+}
+
+.react-grab-workspace-warning {
+  background: #fff8e6;
+  border-color: #f5c518;
+  color: #856404;
 }
 
 .react-grab-context-section label,
@@ -383,9 +431,36 @@
     color: #adbac7;
   }
 
+  .react-grab-workspace-section label,
   .react-grab-context-section label,
   .react-grab-prompt-section label {
     color: #768390;
+  }
+
+  .react-grab-workspace-section {
+    background: #2d333b;
+    border-color: #444c56;
+  }
+
+  .react-grab-workspace-select {
+    background: #22272e;
+    border-color: #444c56;
+    color: #adbac7;
+  }
+
+  .react-grab-workspace-select:focus {
+    border-color: #539bf5;
+    box-shadow: 0 0 0 2px rgba(83, 155, 245, 0.1);
+  }
+
+  .react-grab-workspace-name {
+    color: #539bf5;
+  }
+
+  .react-grab-workspace-warning {
+    background: #3d3122;
+    border-color: #966600;
+    color: #d4a72c;
   }
 
   .react-grab-context-editor {

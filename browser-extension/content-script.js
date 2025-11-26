@@ -14,17 +14,15 @@
   // ============================================
   // Configuration
   // ============================================
-  const WS_PORT = 9765;
-  const WS_URL = `ws://localhost:${WS_PORT}`;
+  const WS_PORTS = [9765, 9766, 9767, 9768, 9769]; // Support multiple VSCode instances
   const KEY_HOLD_DURATION = 150; // ms to hold key before activation
 
   // ============================================
   // State
   // ============================================
-  let ws = null;
-  let isConnected = false;
+  const connections = new Map(); // port -> { ws, workspace, isConnected }
   let reconnectAttempts = 0;
-  const MAX_RECONNECT_ATTEMPTS = 5;
+  const MAX_RECONNECT_ATTEMPTS = 3;
 
   let isGrabMode = false;
   let keyDownTime = null;
@@ -65,8 +63,8 @@
         setupMouseListeners();
         setupMessageListeners();
 
-        // Connect to VSCode
-        connectWebSocket();
+        // Connect to all available VSCode instances
+        startConnectionPolling();
 
         // Create overlay elements
         createOverlayElements();
@@ -89,57 +87,110 @@
   // ============================================
   // WebSocket Connection
   // ============================================
-  function connectWebSocket() {
+  function connectToAllPorts() {
     if (!extensionEnabled) return;
 
+    WS_PORTS.forEach(port => connectToPort(port));
+  }
+
+  function connectToPort(port) {
+    if (connections.has(port)) {
+      const conn = connections.get(port);
+      if (conn.ws && conn.ws.readyState === WebSocket.OPEN) return;
+    }
+
     try {
-      ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(`ws://localhost:${port}`);
 
       ws.onopen = () => {
-        console.log('[React Grab Bridge] Connected to VSCode');
-        isConnected = true;
-        reconnectAttempts = 0;
-        showNotification('Connected to VSCode', 'success');
+        console.log(`[React Grab Bridge] Connected to VSCode on port ${port}`);
+        connections.set(port, { ws, workspace: null, isConnected: true });
+        updateConnectionStatus();
       };
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        handleServerMessage(message);
+        handleServerMessage(port, message);
       };
 
       ws.onclose = () => {
-        console.log('[React Grab Bridge] Disconnected from VSCode');
-        isConnected = false;
-        attemptReconnect();
+        console.log(`[React Grab Bridge] Disconnected from port ${port}`);
+        connections.delete(port);
+        updateConnectionStatus();
       };
 
-      ws.onerror = (error) => {
-        console.error('[React Grab Bridge] WebSocket error:', error);
+      ws.onerror = () => {
+        // Silent fail - port might not be in use
+        connections.delete(port);
       };
 
     } catch (error) {
-      console.error('[React Grab Bridge] Failed to connect:', error);
-      attemptReconnect();
+      // Silent fail
     }
   }
 
-  function attemptReconnect() {
-    if (!extensionEnabled || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
-
-    reconnectAttempts++;
-    setTimeout(connectWebSocket, 1000 * reconnectAttempts);
+  function updateConnectionStatus() {
+    const connectedCount = getConnectedWorkspaces().length;
+    if (connectedCount > 0) {
+      console.log(`[React Grab Bridge] Connected to ${connectedCount} VSCode instance(s)`);
+    }
   }
 
-  function sendToVSCode(type, data) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type, ...data, timestamp: Date.now() }));
-    } else {
+  function getConnectedWorkspaces() {
+    const workspaces = [];
+    connections.forEach((conn, port) => {
+      if (conn.isConnected && conn.ws?.readyState === WebSocket.OPEN) {
+        workspaces.push({
+          port,
+          name: conn.workspace?.name || `VSCode (port ${port})`,
+          path: conn.workspace?.path || '',
+        });
+      }
+    });
+    return workspaces;
+  }
+
+  function sendToVSCode(type, data, targetPort = null) {
+    const workspaces = getConnectedWorkspaces();
+
+    if (workspaces.length === 0) {
       showNotification('Not connected to VSCode', 'error');
+      return false;
     }
+
+    // If targetPort specified, send to that port only
+    if (targetPort) {
+      const conn = connections.get(targetPort);
+      if (conn && conn.ws?.readyState === WebSocket.OPEN) {
+        conn.ws.send(JSON.stringify({ type, ...data, timestamp: Date.now() }));
+        return true;
+      }
+      return false;
+    }
+
+    // If only one connection, send directly
+    if (workspaces.length === 1) {
+      const conn = connections.get(workspaces[0].port);
+      conn.ws.send(JSON.stringify({ type, ...data, timestamp: Date.now() }));
+      return true;
+    }
+
+    // Multiple connections - caller should handle workspace selection
+    return 'multiple';
   }
 
-  function handleServerMessage(message) {
+  function handleServerMessage(port, message) {
     switch (message.type) {
+      case 'status':
+        // Store workspace info
+        if (message.workspace) {
+          const conn = connections.get(port);
+          if (conn) {
+            conn.workspace = message.workspace;
+            console.log(`[React Grab Bridge] Workspace "${message.workspace.name}" connected on port ${port}`);
+          }
+        }
+        break;
       case 'success':
         showNotification('Prompt sent successfully!', 'success');
         break;
@@ -147,6 +198,14 @@
         showNotification(message.message || 'Error occurred', 'error');
         break;
     }
+  }
+
+  // Periodically try to connect to all ports
+  function startConnectionPolling() {
+    connectToAllPorts();
+    setInterval(() => {
+      connectToAllPorts();
+    }, 5000); // Check every 5 seconds
   }
 
   // ============================================
@@ -472,6 +531,36 @@
     dialog.className = 'react-grab-dialog';
 
     const markdown = context.markdown || generateMarkdown(context);
+    const workspaces = getConnectedWorkspaces();
+
+    // Build workspace selector HTML
+    let workspaceSelectorHtml = '';
+    if (workspaces.length > 1) {
+      const options = workspaces.map(ws =>
+        `<option value="${ws.port}">${escapeHtml(ws.name)}</option>`
+      ).join('');
+      workspaceSelectorHtml = `
+        <div class="react-grab-workspace-section">
+          <label>Send to workspace:</label>
+          <select id="react-grab-workspace" class="react-grab-workspace-select">
+            ${options}
+          </select>
+        </div>
+      `;
+    } else if (workspaces.length === 1) {
+      workspaceSelectorHtml = `
+        <div class="react-grab-workspace-section">
+          <label>Workspace:</label>
+          <span class="react-grab-workspace-name">${escapeHtml(workspaces[0].name)}</span>
+        </div>
+      `;
+    } else {
+      workspaceSelectorHtml = `
+        <div class="react-grab-workspace-section react-grab-workspace-warning">
+          <span>⚠️ No VSCode connected</span>
+        </div>
+      `;
+    }
 
     dialog.innerHTML = `
       <div class="react-grab-dialog-content">
@@ -485,6 +574,8 @@
         </div>
 
         <div class="react-grab-dialog-body">
+          ${workspaceSelectorHtml}
+
           <div class="react-grab-context-section">
             <label>Component Context:</label>
             <textarea
@@ -505,11 +596,11 @@
           </div>
 
           <div class="react-grab-ai-buttons">
-            <button id="react-grab-send-copilot" class="react-grab-btn react-grab-btn-copilot">
+            <button id="react-grab-send-copilot" class="react-grab-btn react-grab-btn-copilot" ${workspaces.length === 0 ? 'disabled' : ''}>
               <span class="btn-icon">🤖</span>
               Send to Copilot
             </button>
-            <button id="react-grab-send-claude" class="react-grab-btn react-grab-btn-claude">
+            <button id="react-grab-send-claude" class="react-grab-btn react-grab-btn-claude" ${workspaces.length === 0 ? 'disabled' : ''}>
               <span class="btn-icon">🧠</span>
               Send to Claude
             </button>
@@ -588,10 +679,14 @@
   function sendToAI(target, context) {
     const promptText = document.getElementById('react-grab-prompt').value.trim();
     const contextText = document.getElementById('react-grab-context').value;
+    const workspaceSelect = document.getElementById('react-grab-workspace');
 
     const finalPrompt = promptText || 'Analyze this React component:';
 
-    sendToVSCode('prompt', {
+    // Get selected workspace port (if multiple workspaces)
+    const targetPort = workspaceSelect ? parseInt(workspaceSelect.value, 10) : null;
+
+    const result = sendToVSCode('prompt', {
       prompt: finalPrompt,
       target: target,
       elementInfo: {
@@ -604,7 +699,11 @@
         id: context.element?.id || '',
         markdownContext: contextText
       }
-    });
+    }, targetPort);
+
+    if (result === false) {
+      showNotification('Failed to send to VSCode', 'error');
+    }
   }
 
   function generateMarkdown(context) {
@@ -673,13 +772,21 @@
   // ============================================
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'checkConnection') {
-      sendResponse({ connected: isConnected, enabled: extensionEnabled });
+      const workspaces = getConnectedWorkspaces();
+      sendResponse({
+        connected: workspaces.length > 0,
+        enabled: extensionEnabled,
+        workspaces: workspaces
+      });
     } else if (request.type === 'toggleExtension') {
       extensionEnabled = request.enabled;
-      if (!extensionEnabled && ws) {
-        ws.close();
-      } else if (extensionEnabled && !ws) {
-        connectWebSocket();
+      if (!extensionEnabled) {
+        connections.forEach((conn) => {
+          if (conn.ws) conn.ws.close();
+        });
+        connections.clear();
+      } else {
+        connectToAllPorts();
       }
     }
     return true;
@@ -689,7 +796,10 @@
   // Cleanup
   // ============================================
   window.addEventListener('beforeunload', () => {
-    if (ws) ws.close();
+    connections.forEach((conn) => {
+      if (conn.ws) conn.ws.close();
+    });
+    connections.clear();
   });
 
   // ============================================

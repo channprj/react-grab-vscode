@@ -26,6 +26,11 @@ interface MessageToBrowser {
   type: 'success' | 'error' | 'pong' | 'status';
   message?: string;
   timestamp: number;
+  workspace?: {
+    name: string;
+    path: string;
+    port: number;
+  };
 }
 
 export class WebSocketServer {
@@ -106,11 +111,20 @@ export class WebSocketServer {
     this.logger.info('New client connected');
     this.statusBar.updateStatus('running', this.clients.size);
 
-    // Send initial status
+    // Send initial status with workspace info
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const workspaceName = workspaceFolders?.[0]?.name || 'Unknown Workspace';
+    const workspacePath = workspaceFolders?.[0]?.uri.fsPath || '';
+
     this.sendMessage(ws, {
       type: 'status',
       message: 'Connected to React Grab VSCode Extension',
       timestamp: Date.now(),
+      workspace: {
+        name: workspaceName,
+        path: workspacePath,
+        port: this.port,
+      },
     });
 
     ws.on('message', async (data: Buffer) => {
@@ -189,15 +203,16 @@ export class WebSocketServer {
     }
 
     const config = vscode.workspace.getConfiguration('reactGrabCopilot');
-    const includeContext = config.get<boolean>('includeElementContext', false);
     const showNotifications = config.get<boolean>('showNotifications', true);
 
     let finalPrompt = message.prompt;
 
-    // Include element context if configured and available
-    if (includeContext && message.elementInfo) {
+    // Always include element context if available (markdownContext from browser)
+    if (message.elementInfo) {
       const context = this.formatElementContext(message.elementInfo);
-      finalPrompt = `${message.prompt}\n\nContext:\n${context}`;
+      if (context) {
+        finalPrompt = `${context}\n\n---\n\n**User Request:** ${message.prompt}`;
+      }
     }
 
     // Determine which AI assistant to use
