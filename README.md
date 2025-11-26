@@ -2,8 +2,6 @@
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![VSCode](https://img.shields.io/badge/VSCode-%5E1.85.0-blue)
-![pnpm](https://img.shields.io/badge/pnpm-10.22.0-orange)
 
 Bridge between React element selection in the browser and AI assistants (GitHub Copilot & Claude Code) in VSCode.
 
@@ -201,15 +199,12 @@ chmod -R 755 browser-extension/
    ```
 
    Then wrap your app with the `<Grab>` component:
+
    ```jsx
    import { Grab } from 'react-grab';
 
    function App() {
-     return (
-       <Grab>
-         {/* Your app components */}
-       </Grab>
-     );
+     return <Grab>{/* Your app components */}</Grab>;
    }
    ```
 
