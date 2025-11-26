@@ -77,12 +77,44 @@ function generateMarkdown(context: ComponentContext): string {
   return md
 }
 
+const STORAGE_KEY = 'react-grab-selected-workspace'
+
+function getStoredPort(): number | null {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? parseInt(stored, 10) : null
+  } catch {
+    return null
+  }
+}
+
+function storePort(port: number): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(port))
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCopy }: ComponentDialogProps) {
   const [prompt, setPrompt] = useState('')
   const [markdownContext, setMarkdownContext] = useState(() => context.markdown || generateMarkdown(context))
-  const [selectedPort, setSelectedPort] = useState<number | null>(workspaces[0]?.port || null)
+  const [selectedPort, setSelectedPort] = useState<number | null>(() => {
+    const storedPort = getStoredPort()
+    // Use stored port if it exists in current workspaces, otherwise use first workspace
+    if (storedPort && workspaces.some(ws => ws.port === storedPort)) {
+      return storedPort
+    }
+    return workspaces[0]?.port || null
+  })
   const isDark = useIsDarkMode()
   const theme = useMemo(() => (isDark ? darkTheme : lightTheme), [isDark])
+
+  // Save selected port to localStorage when changed
+  const handlePortChange = useCallback((port: number) => {
+    setSelectedPort(port)
+    storePort(port)
+  }, [])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -237,7 +269,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
               <label style={{ fontSize: '13px', color: theme.textSecondary }}>Send to workspace:</label>
               <select
                 value={selectedPort || ''}
-                onChange={(e) => setSelectedPort(parseInt(e.target.value, 10))}
+                onChange={(e) => handlePortChange(parseInt(e.target.value, 10))}
                 style={{
                   flex: 1,
                   padding: '6px 10px',
