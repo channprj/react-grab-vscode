@@ -8,7 +8,7 @@
  * - Send to Copilot or Claude Code
  */
 
-(function() {
+(function () {
   'use strict';
 
   // ============================================
@@ -56,7 +56,7 @@
     injectScript();
 
     // Check host settings
-    checkHostSettings().then(enabled => {
+    checkHostSettings().then((enabled) => {
       if (enabled) {
         // Setup event listeners
         setupKeyListeners();
@@ -90,7 +90,7 @@
   function connectToAllPorts() {
     if (!extensionEnabled) return;
 
-    WS_PORTS.forEach(port => connectToPort(port));
+    WS_PORTS.forEach((port) => connectToPort(port));
   }
 
   function connectToPort(port) {
@@ -123,7 +123,6 @@
         // Silent fail - port might not be in use
         connections.delete(port);
       };
-
     } catch (error) {
       // Silent fail
     }
@@ -187,7 +186,9 @@
           const conn = connections.get(port);
           if (conn) {
             conn.workspace = message.workspace;
-            console.log(`[React Grab Bridge] Workspace "${message.workspace.name}" connected on port ${port}`);
+            console.log(
+              `[React Grab Bridge] Workspace "${message.workspace.name}" connected on port ${port}`
+            );
           }
         }
         break;
@@ -369,6 +370,9 @@
       if (isGrabMode) {
         deactivateGrabMode();
       }
+
+      // Always hide overlay and label when Alt is released
+      hideOverlay();
     }
   }
 
@@ -413,6 +417,9 @@
     hideCrosshair();
     currentElement = null;
     currentContext = null;
+
+    // Clear pending requests to prevent race conditions
+    pendingRequests.clear();
 
     if (keyHoldTimer) {
       clearTimeout(keyHoldTimer);
@@ -470,12 +477,15 @@
     const id = ++requestId;
     pendingRequests.set(id, 'hover');
 
-    window.postMessage({
-      type: 'GRAB_GET_ELEMENT_AT_POINT',
-      x: mouseX,
-      y: mouseY,
-      requestId: id
-    }, '*');
+    window.postMessage(
+      {
+        type: 'GRAB_GET_ELEMENT_AT_POINT',
+        x: mouseX,
+        y: mouseY,
+        requestId: id,
+      },
+      '*'
+    );
   }
 
   // ============================================
@@ -490,8 +500,9 @@
           const { requestId: id, context, rect } = event.data;
           if (pendingRequests.get(id) === 'hover') {
             pendingRequests.delete(id);
-            currentContext = context;
-            if (context && rect) {
+            // Only show overlay if still in grab mode
+            if (isGrabMode && context && rect) {
+              currentContext = context;
               showOverlay(rect, context);
             }
           }
@@ -522,6 +533,9 @@
   // Component Dialog
   // ============================================
   function showComponentDialog(context) {
+    // Hide overlay and label before showing dialog
+    hideOverlay();
+
     // Remove existing dialog
     const existing = document.getElementById('react-grab-dialog');
     if (existing) existing.remove();
@@ -536,9 +550,9 @@
     // Build workspace selector HTML
     let workspaceSelectorHtml = '';
     if (workspaces.length > 1) {
-      const options = workspaces.map(ws =>
-        `<option value="${ws.port}">${escapeHtml(ws.name)}</option>`
-      ).join('');
+      const options = workspaces
+        .map((ws) => `<option value="${ws.port}">${escapeHtml(ws.name)}</option>`)
+        .join('');
       workspaceSelectorHtml = `
         <div class="react-grab-workspace-section">
           <label>Send to workspace:</label>
@@ -568,7 +582,13 @@
           <div class="react-grab-dialog-title">
             <span class="react-grab-component-icon">⚛️</span>
             <h3>${escapeHtml(context.componentName)}</h3>
-            ${context.source?.fileName ? `<span class="react-grab-file-badge">${escapeHtml(context.source.fileName.replace(/^.*[\/\\]/, ''))}</span>` : ''}
+            ${
+              context.source?.fileName
+                ? `<span class="react-grab-file-badge">${escapeHtml(
+                    context.source.fileName.replace(/^.*[\/\\]/, '')
+                  )}</span>`
+                : ''
+            }
           </div>
           <button class="react-grab-dialog-close" id="react-grab-close">&times;</button>
         </div>
@@ -596,11 +616,15 @@
           </div>
 
           <div class="react-grab-ai-buttons">
-            <button id="react-grab-send-copilot" class="react-grab-btn react-grab-btn-copilot" ${workspaces.length === 0 ? 'disabled' : ''}>
+            <button id="react-grab-send-copilot" class="react-grab-btn react-grab-btn-copilot" ${
+              workspaces.length === 0 ? 'disabled' : ''
+            }>
               <span class="btn-icon">🤖</span>
               Send to Copilot
             </button>
-            <button id="react-grab-send-claude" class="react-grab-btn react-grab-btn-claude" ${workspaces.length === 0 ? 'disabled' : ''}>
+            <button id="react-grab-send-claude" class="react-grab-btn react-grab-btn-claude" ${
+              workspaces.length === 0 ? 'disabled' : ''
+            }>
               <span class="btn-icon">🧠</span>
               Send to Claude
             </button>
@@ -686,20 +710,24 @@
     // Get selected workspace port (if multiple workspaces)
     const targetPort = workspaceSelect ? parseInt(workspaceSelect.value, 10) : null;
 
-    const result = sendToVSCode('prompt', {
-      prompt: finalPrompt,
-      target: target,
-      elementInfo: {
-        componentName: context.componentName,
-        jsx: context.jsx,
-        props: context.props,
-        filePath: context.source?.fileName || null,
-        tagName: context.element?.tagName || '',
-        className: context.element?.className || '',
-        id: context.element?.id || '',
-        markdownContext: contextText
-      }
-    }, targetPort);
+    const result = sendToVSCode(
+      'prompt',
+      {
+        prompt: finalPrompt,
+        target: target,
+        elementInfo: {
+          componentName: context.componentName,
+          jsx: context.jsx,
+          props: context.props,
+          filePath: context.source?.fileName || null,
+          tagName: context.element?.tagName || '',
+          className: context.element?.className || '',
+          id: context.element?.id || '',
+          markdownContext: contextText,
+        },
+      },
+      targetPort
+    );
 
     if (result === false) {
       showNotification('Failed to send to VSCode', 'error');
@@ -737,7 +765,7 @@
   function showNotification(message, type = 'info') {
     // Remove existing notifications
     const existing = document.querySelectorAll('.react-grab-notification');
-    existing.forEach(n => n.remove());
+    existing.forEach((n) => n.remove());
 
     const notification = document.createElement('div');
     notification.className = `react-grab-notification react-grab-notification-${type}`;
@@ -776,7 +804,7 @@
       sendResponse({
         connected: workspaces.length > 0,
         enabled: extensionEnabled,
-        workspaces: workspaces
+        workspaces: workspaces,
       });
     } else if (request.type === 'toggleExtension') {
       extensionEnabled = request.enabled;
