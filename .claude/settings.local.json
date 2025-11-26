@@ -19,7 +19,8 @@
       "WebFetch(domain:www.react-grab.com)",
       "WebFetch(domain:api.github.com)",
       "Bash(pnpm build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(pnpm run build:*)"
     ],
     "deny": [],
     "ask": []
