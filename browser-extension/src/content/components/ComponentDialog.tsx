@@ -1,5 +1,55 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { ComponentContext, Workspace } from '../types'
+
+// Detect dark mode from system preference or page
+function useIsDarkMode(): boolean {
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+    }
+    return false
+  })
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches)
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [])
+
+  return isDark
+}
+
+// Theme colors
+const lightTheme = {
+  bg: 'hsl(0 0% 100%)',
+  bgSecondary: 'hsl(240 4.8% 95.9%)',
+  border: 'hsl(240 5.9% 90%)',
+  text: '#24292f',
+  textSecondary: '#666',
+  textMuted: '#999',
+  accent: 'hsl(262.1 83.3% 57.8%)',
+  infoBg: 'hsl(217 91% 95%)',
+  infoBorder: 'hsl(217 91% 85%)',
+  warningBg: 'hsl(48 96% 89%)',
+  warningBorder: 'hsl(45 93% 58%)',
+  warningText: 'hsl(32 95% 44%)',
+}
+
+const darkTheme = {
+  bg: 'hsl(222.2 84% 4.9%)',
+  bgSecondary: 'hsl(217.2 32.6% 17.5%)',
+  border: 'hsl(217.2 32.6% 25%)',
+  text: 'hsl(210 40% 98%)',
+  textSecondary: 'hsl(215 20.2% 65.1%)',
+  textMuted: 'hsl(215 20.2% 55%)',
+  accent: 'hsl(263.4 70% 70%)',
+  infoBg: 'hsl(217 32% 20%)',
+  infoBorder: 'hsl(217 40% 35%)',
+  warningBg: 'hsl(48 40% 20%)',
+  warningBorder: 'hsl(45 50% 40%)',
+  warningText: 'hsl(45 80% 70%)',
+}
 
 interface ComponentDialogProps {
   context: ComponentContext
@@ -31,6 +81,8 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
   const [prompt, setPrompt] = useState('')
   const [markdownContext, setMarkdownContext] = useState(() => context.markdown || generateMarkdown(context))
   const [selectedPort, setSelectedPort] = useState<number | null>(workspaces[0]?.port || null)
+  const isDark = useIsDarkMode()
+  const theme = useMemo(() => (isDark ? darkTheme : lightTheme), [isDark])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -78,28 +130,28 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
 
       <div
         style={{
-          background: 'hsl(0 0% 100%)',
+          background: theme.bg,
           borderRadius: '12px',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          boxShadow: isDark ? '0 20px 60px rgba(0, 0, 0, 0.5)' : '0 20px 60px rgba(0, 0, 0, 0.3)',
           maxWidth: '600px',
           width: '90%',
           maxHeight: '85vh',
           overflowY: 'auto',
           animation: 'slideUp 0.2s ease',
+          color: theme.text,
         }}
-        className="dark:bg-[hsl(222.2,84%,4.9%)]"
       >
         {/* Header */}
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid hsl(240 5.9% 90%)',
+            borderBottom: `1px solid ${theme.border}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             position: 'sticky',
             top: 0,
-            background: 'white',
+            background: theme.bg,
             borderRadius: '12px 12px 0 0',
           }}
         >
@@ -110,7 +162,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 margin: 0,
                 fontSize: '18px',
                 fontWeight: 600,
-                color: 'hsl(262.1 83.3% 57.8%)',
+                color: theme.accent,
                 fontFamily: "'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace",
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -123,8 +175,8 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
               <span
                 style={{
                   fontSize: '11px',
-                  background: 'hsl(240 4.8% 95.9%)',
-                  color: 'hsl(240 3.8% 46.1%)',
+                  background: theme.bgSecondary,
+                  color: theme.textSecondary,
                   padding: '3px 8px',
                   borderRadius: '10px',
                   fontFamily: "'SF Mono', Monaco, monospace",
@@ -141,7 +193,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
               background: 'none',
               border: 'none',
               fontSize: '24px',
-              color: '#999',
+              color: theme.textMuted,
               cursor: 'pointer',
               padding: 0,
               width: '32px',
@@ -154,12 +206,12 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
               marginLeft: '12px',
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = '#f5f5f5'
-              e.currentTarget.style.color = '#333'
+              e.currentTarget.style.background = theme.bgSecondary
+              e.currentTarget.style.color = theme.text
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.background = 'none'
-              e.currentTarget.style.color = '#999'
+              e.currentTarget.style.color = theme.textMuted
             }}
           >
             ×
@@ -176,24 +228,25 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 alignItems: 'center',
                 gap: '12px',
                 padding: '10px 12px',
-                background: 'hsl(217 91% 95%)',
+                background: theme.infoBg,
                 borderRadius: '8px',
-                border: '1px solid hsl(217 91% 85%)',
+                border: `1px solid ${theme.infoBorder}`,
                 marginBottom: '16px',
               }}
             >
-              <label style={{ fontSize: '13px', color: '#555' }}>Send to workspace:</label>
+              <label style={{ fontSize: '13px', color: theme.textSecondary }}>Send to workspace:</label>
               <select
                 value={selectedPort || ''}
                 onChange={(e) => setSelectedPort(parseInt(e.target.value, 10))}
                 style={{
                   flex: 1,
                   padding: '6px 10px',
-                  border: '1px solid hsl(240 5.9% 90%)',
+                  border: `1px solid ${theme.border}`,
                   borderRadius: '6px',
                   fontSize: '13px',
                   fontFamily: "'SF Mono', Monaco, monospace",
-                  background: 'white',
+                  background: theme.bg,
+                  color: theme.text,
                   cursor: 'pointer',
                 }}
               >
@@ -211,19 +264,19 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 alignItems: 'center',
                 gap: '12px',
                 padding: '10px 12px',
-                background: 'hsl(217 91% 95%)',
+                background: theme.infoBg,
                 borderRadius: '8px',
-                border: '1px solid hsl(217 91% 85%)',
+                border: `1px solid ${theme.infoBorder}`,
                 marginBottom: '16px',
               }}
             >
-              <label style={{ fontSize: '13px', color: '#555' }}>Workspace:</label>
+              <label style={{ fontSize: '13px', color: theme.textSecondary }}>Workspace:</label>
               <span
                 style={{
                   fontFamily: "'SF Mono', Monaco, monospace",
                   fontSize: '13px',
                   fontWeight: 500,
-                  color: 'hsl(262.1 83.3% 57.8%)',
+                  color: theme.accent,
                 }}
               >
                 {workspaces[0].name}
@@ -236,11 +289,11 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 alignItems: 'center',
                 gap: '12px',
                 padding: '10px 12px',
-                background: 'hsl(48 96% 89%)',
+                background: theme.warningBg,
                 borderRadius: '8px',
-                border: '1px solid hsl(45 93% 58%)',
+                border: `1px solid ${theme.warningBorder}`,
                 marginBottom: '16px',
-                color: 'hsl(32 95% 44%)',
+                color: theme.warningText,
               }}
             >
               <span>⚠️ No VSCode connected</span>
@@ -249,7 +302,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
 
           {/* Context Editor */}
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#666', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: theme.textSecondary, marginBottom: '8px' }}>
               Component Context:
             </label>
             <textarea
@@ -261,14 +314,14 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 minHeight: '180px',
                 maxHeight: '300px',
                 padding: '12px',
-                border: '1px solid hsl(240 5.9% 90%)',
+                border: `1px solid ${theme.border}`,
                 borderRadius: '8px',
                 fontFamily: "'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace",
                 fontSize: '12px',
                 lineHeight: 1.5,
                 resize: 'vertical',
-                background: 'hsl(240 4.8% 95.9%)',
-                color: '#333',
+                background: theme.bgSecondary,
+                color: theme.text,
                 boxSizing: 'border-box',
               }}
             />
@@ -276,7 +329,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
 
           {/* Prompt Input */}
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#666', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: theme.textSecondary, marginBottom: '8px' }}>
               Your prompt:
             </label>
             <textarea
@@ -289,12 +342,14 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 width: '100%',
                 minHeight: '80px',
                 padding: '12px',
-                border: '1px solid hsl(240 5.9% 90%)',
+                border: `1px solid ${theme.border}`,
                 borderRadius: '8px',
                 fontFamily: 'inherit',
                 fontSize: '14px',
                 resize: 'vertical',
                 boxSizing: 'border-box',
+                background: theme.bg,
+                color: theme.text,
               }}
             />
           </div>
@@ -378,7 +433,7 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
               justifyContent: 'flex-end',
               gap: '8px',
               paddingTop: '12px',
-              borderTop: '1px solid hsl(240 5.9% 90%)',
+              borderTop: `1px solid ${theme.border}`,
             }}
           >
             <button
@@ -389,9 +444,9 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 fontSize: '14px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                border: '1px solid hsl(240 5.9% 90%)',
-                background: 'hsl(240 4.8% 95.9%)',
-                color: '#24292f',
+                border: `1px solid ${theme.border}`,
+                background: theme.bgSecondary,
+                color: theme.text,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -407,9 +462,9 @@ export function ComponentDialog({ context, workspaces, onClose, onSendToAI, onCo
                 fontSize: '14px',
                 fontWeight: 500,
                 cursor: 'pointer',
-                border: '1px solid hsl(240 5.9% 90%)',
-                background: 'hsl(240 4.8% 95.9%)',
-                color: '#24292f',
+                border: `1px solid ${theme.border}`,
+                background: theme.bgSecondary,
+                color: theme.text,
               }}
             >
               Cancel
