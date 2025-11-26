@@ -69,6 +69,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show notifications for server events"
+        },
+        "reactGrabCopilot.preferClaudeCli": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefer Claude Code CLI over VSCode Chat when sending prompts to Claude"
         }
       }
     }

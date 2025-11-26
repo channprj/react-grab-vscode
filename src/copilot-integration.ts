@@ -65,62 +65,133 @@ export class CopilotIntegration {
 
   /**
    * Execute prompt in Claude Code
+   * Tries multiple methods: VSCode Chat with @claude, Claude extension commands, and CLI fallback
    */
-  private async executeClaude(prompt: string, autoExecute: boolean): Promise<void> {
-    // Check if Claude Code is available through various common commands
+  private async executeClaude(prompt: string, _autoExecute: boolean): Promise<void> {
+    const config = vscode.workspace.getConfiguration('reactGrabCopilot');
+    const preferCli = config.get<boolean>('preferClaudeCli', false);
+
+    // If user prefers CLI, try that first
+    if (preferCli) {
+      const cliSuccess = await this.executeClaudeCli(prompt);
+      if (cliSuccess) {
+        return;
+      }
+      this.logger.warn('Claude CLI failed, falling back to VSCode methods');
+    }
+
+    // Method 1: Try VSCode Chat with @claude participant
+    const chatSuccess = await this.tryVSCodeChatWithClaude(prompt);
+    if (chatSuccess) {
+      this.logger.info('Prompt sent to Claude via VSCode Chat');
+      return;
+    }
+
+    // Method 2: Try Claude extension specific commands
+    const extensionSuccess = await this.tryClaudeExtensionCommands(prompt);
+    if (extensionSuccess) {
+      this.logger.info('Prompt sent via Claude extension command');
+      return;
+    }
+
+    // Method 3: Fallback to Claude CLI in terminal
+    if (!preferCli) {
+      const cliSuccess = await this.executeClaudeCli(prompt);
+      if (cliSuccess) {
+        return;
+      }
+    }
+
+    // All methods failed
+    throw new Error(
+      'Could not send prompt to Claude Code. Please ensure Claude Code CLI or VSCode extension is installed.'
+    );
+  }
+
+  /**
+   * Try sending prompt via VSCode Chat with @claude participant
+   */
+  private async tryVSCodeChatWithClaude(prompt: string): Promise<boolean> {
+    try {
+      const commands = await vscode.commands.getCommands();
+
+      // Try using the chat open command with @claude prefix
+      if (commands.includes('workbench.action.chat.open')) {
+        // Prefix the prompt with @claude to direct it to Claude
+        const claudePrompt = `@claude ${prompt}`;
+
+        await vscode.commands.executeCommand('workbench.action.chat.open', {
+          query: claudePrompt,
+        });
+
+        return true;
+      }
+    } catch (error) {
+      this.logger.warn('Failed to use VSCode Chat with @claude:', error);
+    }
+    return false;
+  }
+
+  /**
+   * Try Claude extension specific commands
+   */
+  private async tryClaudeExtensionCommands(prompt: string): Promise<boolean> {
     const claudeCommands = [
-      'claude.openChat',           // Claude Code official command
-      'claude-code.chat',          // Alternative Claude Code command
-      'workbench.action.chat.open' // Generic chat command that might work with Claude
+      'claude.newSession',           // Anthropic Claude Code extension
+      'claude.openPanel',            // Alternative command
+      'anthropic.claude.chat',       // Another possible command
+      'claude-dev.openChat',         // Cline (formerly Claude Dev)
     ];
 
-    let commandExecuted = false;
+    const commands = await vscode.commands.getCommands();
 
     for (const command of claudeCommands) {
-      try {
-        // Check if command exists
-        const commands = await vscode.commands.getCommands();
-        if (commands.includes(command)) {
-          // Try to execute with the prompt
+      if (commands.includes(command)) {
+        try {
           await vscode.commands.executeCommand(command, {
             query: prompt,
-            prompt: prompt, // Some commands might use 'prompt' instead of 'query'
+            prompt: prompt,
+            message: prompt,
           });
-
-          this.logger.info(`Prompt sent to Claude Code using command: ${command}`);
-          commandExecuted = true;
-          break;
+          return true;
+        } catch (error) {
+          this.logger.warn(`Failed to execute ${command}:`, error);
         }
-      } catch (error) {
-        this.logger.warn(`Failed to execute command ${command}:`, error);
       }
     }
 
-    if (!commandExecuted) {
-      // If no Claude-specific command works, try opening the chat and inserting text
-      try {
-        // Open the chat panel
-        await vscode.commands.executeCommand('workbench.action.chat.open');
+    return false;
+  }
 
-        // Try to insert the prompt into the active editor (chat input)
-        await vscode.commands.executeCommand('editor.action.insertLineAfter');
-        await vscode.commands.executeCommand('type', { text: prompt });
+  /**
+   * Execute prompt using Claude Code CLI in the integrated terminal
+   */
+  private async executeClaudeCli(prompt: string): Promise<boolean> {
+    try {
+      // Escape the prompt for shell
+      const escapedPrompt = prompt.replace(/'/g, "'\\''");
 
-        if (autoExecute) {
-          // Try to submit the prompt
-          await vscode.commands.executeCommand('workbench.action.chat.submit');
-        }
+      // Create or reuse a terminal for Claude
+      let terminal = vscode.window.terminals.find(t => t.name === 'Claude Code');
 
-        this.logger.info('Prompt inserted into chat (Claude Code fallback method)');
-      } catch (error) {
-        throw new Error(
-          'Could not send prompt to Claude Code. Please ensure Claude Code is installed and active, or switch to Copilot.'
-        );
+      if (!terminal) {
+        terminal = vscode.window.createTerminal({
+          name: 'Claude Code',
+          hideFromUser: false,
+        });
       }
-    }
 
-    if (!autoExecute) {
-      this.logger.info('Auto-execute disabled, prompt inserted but not executed');
+      terminal.show();
+
+      // Send the prompt to Claude CLI
+      // Using the interactive mode (without -p) so user can see and interact
+      terminal.sendText(`claude '${escapedPrompt}'`);
+
+      this.logger.info('Prompt sent to Claude Code CLI');
+      return true;
+    } catch (error) {
+      this.logger.error('Failed to execute Claude CLI:', error);
+      return false;
     }
   }
 
