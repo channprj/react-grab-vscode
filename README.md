@@ -9,7 +9,7 @@ Bridge between React element selection in the browser and AI assistants (GitHub 
 
 <video src="https://github.com/user-attachments/assets/ca4e3081-3c89-47e1-aabb-2e02b2a744f8" width="600"></video>
 
-<video src="https://github.com/user-attachments/assets/25210e8d-9ad2-44cc-ad0c-540346d53d82" width="600"></video>
+<video src="https://github.com/user-attachments/assets/61d34ceb-bc79-4d9c-91c5-1e1746039013" width="600"></video>
 
 ## Summary
 
