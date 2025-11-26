@@ -5,12 +5,19 @@
 
 Bridge between React element selection in the browser and AI assistants (GitHub Copilot & Claude Code) in VSCode.
 
+## Summary
+
+- Select any React component visually in your browser using React fiber inspection
+- Instantly send JSX, props, and context to GitHub Copilot or Claude Code in VSCode
+- Real-time WebSocket connection between your browser and IDE
+- Hold `opt` (Mac) or `alt` (Windows/Linux), click a component, and ask AI anything about it
+
 ## 🌟 Features
 
-- **Visual Component Selection**: Hold `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux) and click to select React components with react-grab
+- **Visual Component Selection**: Hold `opt` (Mac) or `alt` (Windows/Linux) and click to select React components
 - **AI Integration**: Seamlessly send prompts to GitHub Copilot Chat or Claude Code
 - **Real-time Communication**: WebSocket-based real-time bridge between browser and VSCode
-- **Smart Context**: Automatically extract component name, props, and JSX from react-grab
+- **Smart Context**: Automatically extract component name, props, and JSX via React fiber inspection
 - **Copy Functionality**: Copy component info or JSX to clipboard for manual prompt creation
 - **Status Indicators**: Visual feedback for connection status in both browser and VSCode
 - **Per-Site Toggle**: Enable/disable the extension per website
@@ -22,7 +29,7 @@ Bridge between React element selection in the browser and AI assistants (GitHub 
 - GitHub Copilot Chat extension (for Copilot features)
 - Claude Code extension (for Claude features)
 - Chrome or Edge browser
-- React application with **react-grab** installed (`npm install react-grab`)
+- Any React application (no additional setup required)
 
 ## 🚀 Quick Start
 
@@ -190,49 +197,31 @@ chmod -R 755 browser-extension/
 
 ### Basic Workflow
 
-1. **Install react-grab in Your React App**
-
-   ```bash
-   npm install react-grab
-   # or
-   pnpm add react-grab
-   ```
-
-   Then wrap your app with the `<Grab>` component:
-
-   ```jsx
-   import { Grab } from 'react-grab';
-
-   function App() {
-     return <Grab>{/* Your app components */}</Grab>;
-   }
-   ```
-
-2. **Start VSCode Extension**
+1. **Start VSCode Extension**
 
    - The WebSocket server starts automatically (port 9765)
    - Check the status bar for connection indicator
 
-3. **Open Your React App**
+2. **Open Your React App**
 
    - Navigate to your React application in Chrome/Edge
    - Ensure the browser extension is active (check extension icon)
 
-4. **Select a Component with react-grab**
+3. **Select a Component**
 
-   - Hold `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux)
+   - Hold `option` (Mac) or `alt` (Windows/Linux)
    - While holding, click on any React component
    - Your cursor will turn into a crosshair when hovering over selectable components
-   - react-grab will capture the component's JSX
+   - The browser extension will capture the component's JSX via React fiber inspection
    - A dialog will appear with component information
 
-5. **Choose Your Action**
+4. **Choose Your Action**
 
    - **Copy Component Info**: Copy component details to clipboard for manual use
    - **Copy JSX**: Copy the raw JSX to clipboard
    - **Send to AI**: Choose between GitHub Copilot or Claude Code
 
-6. **Get AI Response**
+5. **Get AI Response**
    - If sending to AI, enter your prompt about the component
    - The prompt is sent to VSCode
    - The selected AI assistant opens with your prompt and component context
@@ -264,13 +253,13 @@ Configure the extension in VSCode settings:
 ### Clean Architecture Implementation
 
 ```
-┌─────────────────┐     WebSocket      ┌──────────────────┐
-│                 │◄───────────────────►│                  │
-│  Chrome Extension│                    │  VSCode Extension │
-│                 │                     │                  │
-└────────┬────────┘                     └────────┬─────────┘
-         │                                        │
-         │                                        │
+┌──────────────────┐     WebSocket       ┌──────────────────┐
+│                  │◄───────────────────►│                  │
+│ Chrome Extension │                     │ VSCode Extension │
+│                  │                     │                  │
+└────────┬─────────┘                     └───────┬──────────┘
+         │                                       │
+         │                                       │
     ┌────▼────┐                            ┌─────▼──────┐
     │         │                            │            │
     │  React  │                            │  Copilot/  │
@@ -283,7 +272,7 @@ Configure the extension in VSCode settings:
 
 ```
 react-grab-vscode/
-├── src/                     # VSCode Extension source
+├── src/                    # VSCode Extension source
 │   ├── domain/             # Business logic
 │   ├── application/        # Use cases
 │   ├── infrastructure/     # External interfaces
@@ -294,7 +283,7 @@ react-grab-vscode/
 │   └── styles.css          # UI styles
 ├── test/                   # Test files
 ├── package.json            # Node dependencies
-└── README.md              # This file
+└── README.md               # This file
 ```
 
 ## 🛠️ Development
@@ -341,18 +330,8 @@ pnpm run package
 
 2. **Chrome Extension**
    - Load unpacked extension from `browser-extension` folder
-   - Open any React application with react-grab installed
-   - Test component selection by holding `Cmd+C` (Mac) or `Ctrl+C` (Windows/Linux) and clicking
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read our contributing guidelines:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+   - Open any React application
+   - Test component selection by holding `opt` (Mac) or `alt` (Windows/Linux) and clicking
 
 ### Development Guidelines
 
@@ -364,58 +343,12 @@ Contributions are welcome! Please read our contributing guidelines:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see the [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- [react-grab](https://github.com/aidenybai/react-grab) - React element selection library
+- [react-grab](https://github.com/nicholasxjy/react-grab) - Inspiration for React fiber inspection approach
 - [GitHub Copilot](https://github.com/features/copilot) - AI pair programmer
 - [Claude Code](https://claude.ai) - AI coding assistant
 - VSCode Extension API documentation
 - Open source community
-
-## 🐛 Known Issues
-
-- WebSocket connection may fail if port 9765 is in use
-- react-grab must be installed and properly configured in your React app
-- The extension monitors clipboard changes to detect react-grab selections
-- Some React versions may have limited component name detection
-
-## 🗺️ Roadmap
-
-- [ ] Support for more AI assistants
-- [ ] History and saved prompts
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/react-grab-vscode/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/react-grab-vscode/discussions)
-- **Email**: support@example.com
-
-## 🚨 Troubleshooting
-
-### WebSocket Connection Failed
-
-1. Check if port 9765 is available
-2. Restart VSCode extension
-3. Check firewall settings
-4. Verify browser extension is installed
-
-### Component Not Detected
-
-1. Ensure react-grab is installed in your React app (`npm install react-grab`)
-2. Verify your app is wrapped with the `<Grab>` component from react-grab
-3. Hold Cmd+C (Mac) or Ctrl+C (Windows/Linux) and click on a component
-4. Check browser console for `[React Grab Bridge]` messages
-5. Try refreshing the page and trying again
-
-### AI Assistant Not Responding
-
-1. Check if Copilot/Claude extension is installed
-2. Verify you're logged in to the service
-3. Restart VSCode
-4. Check extension logs (Output panel)
-
----
-
-Made with ❤️ by the React Grab VSCode team
