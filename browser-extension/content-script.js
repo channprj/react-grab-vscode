@@ -1,7 +1,7 @@
 /**
  * React Grab Bridge - Content Script
  *
- * Activates when Cmd/Ctrl key is held:
+ * Activates when Option (Alt) key is held:
  * - Shows crosshair cursor
  * - Highlights React components on hover
  * - Click to select and open prompt modal
@@ -71,7 +71,7 @@
         // Create overlay elements
         createOverlayElements();
 
-        console.log('[React Grab Bridge] Ready. Hold Cmd/Ctrl to activate.');
+        console.log('[React Grab Bridge] Ready. Hold Option (Alt) to activate.');
       }
     });
   }
@@ -281,8 +281,8 @@
   }
 
   function handleKeyDown(event) {
-    // Check for Meta (Cmd) or Ctrl key
-    if ((event.key === 'Meta' || event.key === 'Control') && !isGrabMode) {
+    // Check for Alt (Option) key
+    if (event.key === 'Alt' && !isGrabMode) {
       if (!keyDownTime) {
         keyDownTime = Date.now();
         keyHoldTimer = setTimeout(() => {
@@ -300,7 +300,7 @@
   }
 
   function handleKeyUp(event) {
-    if (event.key === 'Meta' || event.key === 'Control') {
+    if (event.key === 'Alt') {
       if (keyHoldTimer) {
         clearTimeout(keyHoldTimer);
         keyHoldTimer = null;
