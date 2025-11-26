@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "React Grab to Copilot Bridge",
   "version": "0.1.0",
-  "description": "Bridge between React Grab element selection and VSCode Copilot Chat",
+  "description": "Bridge between React Grab element selection and VSCode Copilot/Claude Code",
   "permissions": [
     "activeTab",
     "storage",
@@ -36,5 +36,11 @@
     "32": "icons/icon-32.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

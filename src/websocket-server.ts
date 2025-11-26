@@ -15,6 +15,9 @@ interface MessageFromBrowser {
     props?: Record<string, unknown>;
     componentName?: string;
     path?: string;
+    jsx?: string;
+    filePath?: string;
+    markdownContext?: string; // Full markdown context from react-grab
   };
   timestamp: number;
 }
@@ -255,24 +258,38 @@ export class WebSocketServer {
   private formatElementContext(elementInfo: MessageFromBrowser['elementInfo']): string {
     if (!elementInfo) return '';
 
-    let context = `Component: ${elementInfo.componentName || 'Unknown'}\n`;
-    context += `Element: <${elementInfo.tagName}`;
-
-    if (elementInfo.id) {
-      context += ` id="${elementInfo.id}"`;
-    }
-    if (elementInfo.className) {
-      context += ` class="${elementInfo.className}"`;
+    // If markdown context is provided from react-grab, use it directly
+    if (elementInfo.markdownContext) {
+      return elementInfo.markdownContext;
     }
 
-    context += '>\n';
+    // Fallback to constructing context manually
+    let context = `## ${elementInfo.componentName || 'Unknown'}\n\n`;
+
+    if (elementInfo.filePath) {
+      context += `**Source:** \`${elementInfo.filePath}\`\n\n`;
+    }
+
+    if (elementInfo.jsx) {
+      context += `### JSX\n\`\`\`jsx\n${elementInfo.jsx}\n\`\`\`\n\n`;
+    }
 
     if (elementInfo.path) {
-      context += `Path: ${elementInfo.path}\n`;
+      context += `**Element Path:** \`${elementInfo.path}\`\n\n`;
     }
 
     if (elementInfo.props && Object.keys(elementInfo.props).length > 0) {
-      context += `Props: ${JSON.stringify(elementInfo.props, null, 2)}`;
+      context += `### Props\n\`\`\`json\n${JSON.stringify(elementInfo.props, null, 2)}\n\`\`\`\n\n`;
+    }
+
+    context += `### Element Info\n`;
+    context += `- **Tag:** \`${elementInfo.tagName}\`\n`;
+
+    if (elementInfo.id) {
+      context += `- **ID:** \`${elementInfo.id}\`\n`;
+    }
+    if (elementInfo.className) {
+      context += `- **Classes:** \`${elementInfo.className}\`\n`;
     }
 
     return context;

@@ -1,11 +1,13 @@
 /**
  * Content script for React Grab to VSCode/AI Bridge
- * Works WITH react-grab library (must be installed in the React app)
+ * Integrates with react-grab library to capture React components
+ * and send them to GitHub Copilot or Claude Code
  *
  * How it works:
- * 1. react-grab is triggered with Option/Alt + C in the React app
- * 2. User clicks an element, react-grab copies JSX to clipboard
- * 3. This extension detects the clipboard change and shows a dialog
+ * 1. react-grab is initialized on the page (via CDN or npm)
+ * 2. When user selects an element with react-grab, we receive the event
+ * 3. Show a dialog with editable component context
+ * 4. User can send to Copilot or Claude Code
  */
 
 // WebSocket connection to VSCode Extension
@@ -18,14 +20,15 @@ const RECONNECT_DELAY = 1000;
 // Configuration
 const WS_PORT = 9765;
 const WS_URL = `ws://localhost:${WS_PORT}`;
+const REACT_GRAB_CDN = 'https://unpkg.com/react-grab/dist/index.global.js';
 
 // Extension state
 let extensionEnabled = true;
 const currentHost = window.location.hostname;
 
-// Store last clipboard content to detect changes
-let lastClipboardContent = '';
-let isMonitoringClipboard = false;
+// react-grab state
+let hasReactGrabApi = false;
+let reactGrabInjected = false;
 
 // Initialize WebSocket connection
 function connectWebSocket() {
@@ -107,180 +110,356 @@ function handleServerMessage(message) {
 }
 
 /**
- * Monitor clipboard for react-grab output
- * react-grab copies JSX to clipboard when an element is selected
+ * Inject the inject.js script into the page context
  */
-async function checkClipboard() {
-  if (!extensionEnabled || !isMonitoringClipboard) return;
+function injectScript() {
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('inject.js');
+  script.onload = () => {
+    console.log('[React Grab Bridge] Inject script loaded');
+    script.remove();
+  };
+  (document.head || document.documentElement).appendChild(script);
+}
+
+/**
+ * Check if react-grab is available on the page
+ * Uses postMessage to communicate with inject.js in page context
+ */
+function checkReactGrabAvailability() {
+  if (reactGrabInjected) return;
+
+  // Ask inject.js to check for react-grab (avoids CSP inline script issues)
+  window.postMessage({ type: 'react-grab-check-api' }, '*');
+}
+
+/**
+ * Load react-grab from CDN
+ */
+function loadReactGrabFromCDN() {
+  if (reactGrabInjected) return;
+  reactGrabInjected = true;
+
+  console.log('[React Grab Bridge] Loading react-grab from CDN...');
+
+  const script = document.createElement('script');
+  script.src = REACT_GRAB_CDN;
+  script.crossOrigin = 'anonymous';
+  script.onload = () => {
+    console.log('[React Grab Bridge] react-grab loaded from CDN');
+    showNotification('react-grab loaded! Use Option/Alt + Click to select elements', 'info');
+
+    // Re-check for API after loading
+    setTimeout(() => {
+      window.postMessage({ type: 'react-grab-check-api' }, '*');
+    }, 500);
+  };
+  script.onerror = () => {
+    console.error('[React Grab Bridge] Failed to load react-grab from CDN');
+    showNotification('Failed to load react-grab. Please install it in your app.', 'error');
+    reactGrabInjected = false;
+  };
+  document.head.appendChild(script);
+}
+
+/**
+ * Listen for react-grab events from the page
+ */
+function setupReactGrabListeners() {
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+
+    switch (event.data.type) {
+      case 'react-grab-element-selected':
+        // Element selected via react-grab API
+        console.log('[React Grab Bridge] Received element selection:', event.data.context);
+        if (event.data.context) {
+          showComponentDialog(event.data.context);
+        }
+        break;
+
+      case 'react-grab-copy-success':
+        // Copy success from react-grab
+        console.log('[React Grab Bridge] react-grab copy success:', event.data.content);
+        // Parse the content and show dialog
+        if (event.data.content) {
+          const context = parseReactGrabContent(event.data.content);
+          if (context) {
+            showComponentDialog(context);
+          }
+        }
+        break;
+
+      case 'react-grab-ready':
+        // react-grab API is ready
+        hasReactGrabApi = event.data.hasApi;
+        const hasInitApi = event.data.hasInitApi;
+        const hasReact = event.data.hasReact;
+        console.log('[React Grab Bridge] react-grab ready:', {
+          hasApi: hasReactGrabApi,
+          hasInitApi: hasInitApi,
+          hasReact: hasReact,
+          detectionMethod: event.data.detectionMethod,
+          message: event.data.message
+        });
+
+        if (hasReactGrabApi) {
+          if (hasInitApi) {
+            showNotification('react-grab connected! Select an element to capture.', 'success');
+          } else {
+            // react-grab is loaded but using auto-init mode (clipboard-based)
+            showNotification('react-grab detected! Use Option/Alt + hover, then Cmd/Ctrl + C to copy.', 'info');
+          }
+        } else if (hasReact) {
+          // React app found but react-grab not detected
+          // This might mean react-grab is loaded via npm but not exposing globals
+          // Show helpful message and rely on clipboard fallback
+          showReactAppDetectedPrompt();
+        } else {
+          // No React detected
+          showNotification('No React app detected on this page.', 'info');
+        }
+        break;
+
+      case 'react-grab-check-result':
+        // Result of checking if react-grab is loaded (legacy)
+        hasReactGrabApi = event.data.hasReactGrab;
+        console.log('[React Grab Bridge] react-grab check result:', event.data);
+        if (!event.data.hasReactGrab) {
+          showLoadReactGrabPrompt();
+        }
+        break;
+
+      case 'react-grab-state-change':
+        // react-grab activation state changed
+        console.log('[React Grab Bridge] react-grab state:', event.data.isActive);
+        if (event.data.isActive) {
+          showNotification('Select an element to capture', 'info');
+        }
+        break;
+
+      case 'react-grab-activation-failed':
+        // Failed to activate react-grab
+        console.error('[React Grab Bridge] react-grab activation failed:', event.data.reason);
+        showLoadReactGrabPrompt();
+        break;
+
+      case 'react-grab-api-status':
+        // API status check response
+        hasReactGrabApi = event.data.hasApi;
+        console.log('[React Grab Bridge] API status:', event.data);
+
+        if (event.data.hasApi && !event.data.hasInitApi) {
+          // react-grab is loaded but doesn't have init API - show notification
+          console.log('[React Grab Bridge] react-grab using clipboard mode (no init API)');
+        }
+        break;
+    }
+  });
+}
+
+/**
+ * Parse content from react-grab clipboard output
+ */
+function parseReactGrabContent(content) {
+  if (!content || typeof content !== 'string') return null;
 
   try {
-    const text = await navigator.clipboard.readText();
+    // react-grab outputs markdown format
+    const context = {
+      markdown: content,
+      componentName: 'Unknown',
+      props: {},
+      jsx: '',
+      filePath: null,
+      tagName: '',
+      className: '',
+      id: ''
+    };
 
-    // Check if this is new content and looks like JSX from react-grab
-    if (text && text !== lastClipboardContent && looksLikeJSX(text)) {
-      console.log('[React Grab Bridge] Detected react-grab clipboard content');
-      lastClipboardContent = text;
-
-      // Parse the JSX to get component info
-      const componentInfo = parseJSXContent(text);
-
-      // Stop monitoring temporarily
-      stopClipboardMonitoring();
-
-      // Show dialog with the component info
-      showComponentDialog(componentInfo);
+    // Try to extract component name from markdown heading
+    const componentMatch = content.match(/^##\s+(\w+)/m);
+    if (componentMatch) {
+      context.componentName = componentMatch[1];
     }
-  } catch (err) {
-    // Clipboard access might be denied or fail
-    // This is normal when clipboard doesn't have text
+
+    // Try to extract component name from JSX tag if no heading found
+    if (context.componentName === 'Unknown') {
+      const jsxComponentMatch = content.match(/<([A-Z][a-zA-Z0-9]*)/);
+      if (jsxComponentMatch) {
+        context.componentName = jsxComponentMatch[1];
+      }
+    }
+
+    // Try to extract JSX from code block
+    const jsxMatch = content.match(/```jsx\n([\s\S]*?)\n```/);
+    if (jsxMatch) {
+      context.jsx = jsxMatch[1];
+    } else {
+      // If no code block, try to find JSX directly
+      const directJsxMatch = content.match(/<[A-Z][^]*?(?:\/>|<\/[A-Z][a-zA-Z0-9]*>)/);
+      if (directJsxMatch) {
+        context.jsx = directJsxMatch[0];
+      }
+    }
+
+    // Try to extract source file
+    const sourceMatch = content.match(/\*\*Source:\*\*\s*`([^`]+)`/);
+    if (sourceMatch) {
+      context.filePath = sourceMatch[1];
+    } else {
+      // Alternative format: Source: path/to/file.tsx
+      const altSourceMatch = content.match(/Source:\s*([^\n]+)/);
+      if (altSourceMatch) {
+        context.filePath = altSourceMatch[1].replace(/`/g, '').trim();
+      }
+    }
+
+    // Try to extract props from JSON block
+    const propsMatch = content.match(/```json\n([\s\S]*?)\n```/);
+    if (propsMatch) {
+      try {
+        context.props = JSON.parse(propsMatch[1]);
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+    }
+
+    // Try to extract props from Props: section
+    if (Object.keys(context.props).length === 0) {
+      const propsSection = content.match(/Props?:[\s\n]*([\s\S]*?)(?=\n##|\n\*\*|$)/i);
+      if (propsSection) {
+        // Try to parse as JSON-like object
+        const propsText = propsSection[1].trim();
+        if (propsText.startsWith('{')) {
+          try {
+            context.props = JSON.parse(propsText);
+          } catch (e) {
+            // Store as raw text
+            context.props = { _raw: propsText };
+          }
+        }
+      }
+    }
+
+    // Extract element info
+    const tagMatch = content.match(/Tag:\s*`?(\w+)`?/i);
+    if (tagMatch) {
+      context.tagName = tagMatch[1];
+    }
+
+    const idMatch = content.match(/ID:\s*`?([^`\n]+)`?/i);
+    if (idMatch) {
+      context.id = idMatch[1];
+    }
+
+    const classMatch = content.match(/Class(?:es)?:\s*`?([^`\n]+)`?/i);
+    if (classMatch) {
+      context.className = classMatch[1];
+    }
+
+    return context;
+  } catch (error) {
+    console.error('[React Grab Bridge] Error parsing react-grab content:', error);
+    return null;
   }
 }
 
 /**
- * Check if text looks like JSX (from react-grab)
+ * Show prompt when React app is detected but react-grab is not explicitly found
+ * This happens when react-grab is loaded via npm import (no globals)
  */
-function looksLikeJSX(text) {
-  // react-grab outputs JSX format like: <Component prop="value" />
-  return text.includes('<') && (text.includes('/>') || text.includes('</'));
-}
+function showReactAppDetectedPrompt() {
+  // Don't show if already showing or react-grab is loaded
+  if (document.getElementById('react-grab-load-prompt') || hasReactGrabApi) return;
 
-/**
- * Parse JSX content from react-grab
- */
-function parseJSXContent(jsx) {
-  const info = {
-    jsx: jsx,
-    componentName: 'Unknown',
-    props: {},
-    children: null
+  const prompt = document.createElement('div');
+  prompt.id = 'react-grab-load-prompt';
+  prompt.className = 'react-grab-load-prompt react-grab-info-prompt';
+  prompt.innerHTML = `
+    <div class="react-grab-load-prompt-content">
+      <p><strong>React app detected!</strong></p>
+      <p class="react-grab-prompt-hint">
+        If react-grab is installed, use:<br>
+        <code>Option/Alt + hover</code> to highlight, then <code>Cmd/Ctrl + C</code> to copy
+      </p>
+      <div class="react-grab-load-prompt-actions">
+        <button id="react-grab-load-cdn" class="react-grab-btn react-grab-btn-primary">
+          Load react-grab
+        </button>
+        <button id="react-grab-load-dismiss" class="react-grab-btn react-grab-btn-secondary">
+          Got it
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(prompt);
+
+  document.getElementById('react-grab-load-cdn').onclick = () => {
+    loadReactGrabFromCDN();
+    prompt.remove();
   };
 
-  try {
-    // Extract component name
-    const componentMatch = jsx.match(/<([A-Z]\w*)/);
-    if (componentMatch) {
-      info.componentName = componentMatch[1];
+  document.getElementById('react-grab-load-dismiss').onclick = () => {
+    prompt.remove();
+  };
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => {
+    if (prompt.parentNode) {
+      prompt.remove();
     }
+  }, 8000);
+}
 
-    // Extract props (basic parsing)
-    const propsRegex = /(\w+)=(?:{([^}]+)}|"([^"]+)"|'([^']+)')/g;
-    let match;
-    while ((match = propsRegex.exec(jsx)) !== null) {
-      const propName = match[1];
-      const propValue = match[2] || match[3] || match[4];
-      info.props[propName] = propValue;
+/**
+ * Show prompt to load react-grab from CDN (when no React or react-grab is found)
+ */
+function showLoadReactGrabPrompt() {
+  // Don't show if already showing or react-grab is loaded
+  if (document.getElementById('react-grab-load-prompt') || hasReactGrabApi) return;
+
+  const prompt = document.createElement('div');
+  prompt.id = 'react-grab-load-prompt';
+  prompt.className = 'react-grab-load-prompt';
+  prompt.innerHTML = `
+    <div class="react-grab-load-prompt-content">
+      <p>react-grab not detected on this page.</p>
+      <div class="react-grab-load-prompt-actions">
+        <button id="react-grab-load-cdn" class="react-grab-btn react-grab-btn-primary">
+          Load from CDN
+        </button>
+        <button id="react-grab-load-dismiss" class="react-grab-btn react-grab-btn-secondary">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(prompt);
+
+  document.getElementById('react-grab-load-cdn').onclick = () => {
+    loadReactGrabFromCDN();
+    prompt.remove();
+  };
+
+  document.getElementById('react-grab-load-dismiss').onclick = () => {
+    prompt.remove();
+  };
+
+  // Auto-dismiss after 10 seconds
+  setTimeout(() => {
+    if (prompt.parentNode) {
+      prompt.remove();
     }
-
-    // Check if it has children
-    const childrenMatch = jsx.match(/>([^<]+)</);
-    if (childrenMatch) {
-      info.children = childrenMatch[1].trim();
-    }
-
-  } catch (error) {
-    console.error('[React Grab Bridge] Error parsing JSX:', error);
-  }
-
-  return info;
+  }, 10000);
 }
 
 /**
- * Start monitoring clipboard (when react-grab might be active)
+ * Show component dialog with editable context and AI options
  */
-function startClipboardMonitoring() {
-  if (isMonitoringClipboard) return;
-
-  console.log('[React Grab Bridge] Starting clipboard monitoring for react-grab');
-  isMonitoringClipboard = true;
-
-  // Check clipboard every 500ms
-  clipboardInterval = setInterval(checkClipboard, 500);
-
-  // Show indicator that we're listening for react-grab
-  showReactGrabListening();
-}
-
-/**
- * Stop monitoring clipboard
- */
-let clipboardInterval;
-function stopClipboardMonitoring() {
-  if (!isMonitoringClipboard) return;
-
-  console.log('[React Grab Bridge] Stopping clipboard monitoring');
-  isMonitoringClipboard = false;
-
-  if (clipboardInterval) {
-    clearInterval(clipboardInterval);
-    clipboardInterval = null;
-  }
-
-  hideReactGrabListening();
-}
-
-/**
- * Show indicator that we're listening for react-grab
- */
-function showReactGrabListening() {
-  let indicator = document.getElementById('react-grab-listening');
-
-  if (!indicator) {
-    indicator = document.createElement('div');
-    indicator.id = 'react-grab-listening';
-    indicator.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 24px;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 2147483646;
-      cursor: pointer;
-      animation: pulse 2s ease-in-out infinite;
-    `;
-    indicator.innerHTML = '👂 Listening for react-grab (Alt+C)';
-
-    // Add pulse animation
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 0.9; }
-        50% { transform: scale(1.05); opacity: 1; }
-      }
-    `;
-    if (!document.getElementById('react-grab-pulse')) {
-      style.id = 'react-grab-pulse';
-      document.head.appendChild(style);
-    }
-
-    // Click to stop listening
-    indicator.onclick = () => {
-      stopClipboardMonitoring();
-    };
-  }
-
-  document.body.appendChild(indicator);
-}
-
-/**
- * Hide listening indicator
- */
-function hideReactGrabListening() {
-  const indicator = document.getElementById('react-grab-listening');
-  if (indicator) {
-    indicator.remove();
-  }
-}
-
-/**
- * Show component dialog with copy and send options
- */
-function showComponentDialog(componentInfo) {
+function showComponentDialog(context) {
   // Remove existing dialog if any
   const existingDialog = document.getElementById('react-grab-dialog');
   if (existingDialog) {
@@ -292,14 +471,8 @@ function showComponentDialog(componentInfo) {
   dialog.id = 'react-grab-dialog';
   dialog.className = 'react-grab-dialog';
 
-  let selectedAI = 'copilot';
-
-  // Format component info for display
-  const componentDisplay = `
-    Component: ${componentInfo.componentName}
-    Props: ${JSON.stringify(componentInfo.props, null, 2)}
-    JSX: ${componentInfo.jsx.substring(0, 100)}${componentInfo.jsx.length > 100 ? '...' : ''}
-  `.trim();
+  // Format initial markdown context
+  const initialMarkdown = context.markdown || generateDefaultMarkdown(context);
 
   dialog.innerHTML = `
     <div class="react-grab-dialog-content">
@@ -309,49 +482,57 @@ function showComponentDialog(componentInfo) {
       </div>
 
       <div class="react-grab-dialog-body">
-        <div class="react-grab-element-info">
-          <strong>Component:</strong> <code>${componentInfo.componentName}</code>
-          ${Object.keys(componentInfo.props).length > 0 ?
-            `<div style="margin-top: 8px;">
-              <strong>Props:</strong>
-              <pre style="background: #f4f4f4; padding: 8px; border-radius: 4px; margin: 4px 0; font-size: 12px;">${JSON.stringify(componentInfo.props, null, 2)}</pre>
-            </div>` : ''}
+        <!-- Component summary -->
+        <div class="react-grab-component-summary">
+          <span class="component-name">${escapeHtml(context.componentName || 'Unknown')}</span>
+          ${context.filePath ? `<span class="file-path">${escapeHtml(context.filePath)}</span>` : ''}
         </div>
 
-        <div class="react-grab-actions">
-          <button id="react-grab-copy-info" class="react-grab-btn react-grab-btn-secondary">
-            📋 Copy Component Info
-          </button>
-          <button id="react-grab-copy-jsx" class="react-grab-btn react-grab-btn-secondary">
-            📋 Copy JSX
-          </button>
+        <!-- Editable markdown context -->
+        <div class="react-grab-context-section">
+          <label for="react-grab-context">Component Context (editable):</label>
+          <textarea
+            id="react-grab-context"
+            class="react-grab-context-editor"
+            spellcheck="false"
+          >${escapeHtml(initialMarkdown)}</textarea>
         </div>
 
-        <div class="react-grab-ai-section">
-          <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e5e5;">
-
-          <div class="react-grab-ai-selection">
-            <div class="react-grab-ai-option copilot selected" data-ai="copilot">
-              <div class="icon">🤖</div>
-              <div class="name">GitHub Copilot</div>
-            </div>
-            <div class="react-grab-ai-option claude" data-ai="claude">
-              <div class="icon">🧠</div>
-              <div class="name">Claude Code</div>
-            </div>
-          </div>
-
+        <!-- Additional prompt -->
+        <div class="react-grab-additional-prompt">
+          <label for="react-grab-prompt">Additional instructions (optional):</label>
           <textarea
             id="react-grab-prompt"
             class="react-grab-prompt-input"
-            placeholder="Ask about this component..."
-            rows="4"
+            placeholder="e.g., Add dark mode support, Fix the styling, Explain how this component works..."
+            rows="2"
           ></textarea>
+        </div>
 
-          <div class="react-grab-dialog-actions">
-            <button id="react-grab-cancel" class="react-grab-btn react-grab-btn-secondary">Cancel</button>
-            <button id="react-grab-send" class="react-grab-btn react-grab-btn-primary">Send to Copilot</button>
-          </div>
+        <!-- Copy button -->
+        <div class="react-grab-copy-actions">
+          <button id="react-grab-copy-context" class="react-grab-btn react-grab-btn-secondary">
+            Copy Context
+          </button>
+        </div>
+
+        <!-- Separate AI buttons -->
+        <div class="react-grab-ai-buttons">
+          <button id="react-grab-send-copilot" class="react-grab-btn react-grab-btn-copilot">
+            <span class="btn-icon">🤖</span>
+            <span>Send to Copilot</span>
+          </button>
+          <button id="react-grab-send-claude" class="react-grab-btn react-grab-btn-claude">
+            <span class="btn-icon">🧠</span>
+            <span>Send to Claude</span>
+          </button>
+        </div>
+
+        <!-- Cancel -->
+        <div class="react-grab-dialog-footer">
+          <button id="react-grab-cancel" class="react-grab-btn react-grab-btn-secondary">
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -359,99 +540,253 @@ function showComponentDialog(componentInfo) {
 
   document.body.appendChild(dialog);
 
-  // Handle copy component info button
-  document.getElementById('react-grab-copy-info').onclick = async () => {
-    const info = `Component: ${componentInfo.componentName}
-Props: ${JSON.stringify(componentInfo.props, null, 2)}
-JSX: ${componentInfo.jsx}`;
+  // Get elements
+  const contextTextarea = document.getElementById('react-grab-context');
+  const promptTextarea = document.getElementById('react-grab-prompt');
+  const closeBtn = document.getElementById('react-grab-close');
+  const cancelBtn = document.getElementById('react-grab-cancel');
+  const copyContextBtn = document.getElementById('react-grab-copy-context');
+  const sendCopilotBtn = document.getElementById('react-grab-send-copilot');
+  const sendClaudeBtn = document.getElementById('react-grab-send-claude');
 
+  // Focus on prompt textarea
+  promptTextarea.focus();
+
+  // Handle copy context
+  copyContextBtn.onclick = async () => {
+    const contextValue = contextTextarea.value;
     try {
-      await navigator.clipboard.writeText(info);
-      showNotification('Component info copied to clipboard', 'success');
+      await navigator.clipboard.writeText(contextValue);
+      showNotification('Context copied to clipboard', 'success');
     } catch (err) {
       showNotification('Failed to copy to clipboard', 'error');
     }
   };
 
-  // Handle copy JSX button
-  document.getElementById('react-grab-copy-jsx').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(componentInfo.jsx);
-      showNotification('JSX copied to clipboard', 'success');
-    } catch (err) {
-      showNotification('Failed to copy to clipboard', 'error');
-    }
-  };
-
-  // Handle AI selection
-  const aiOptions = dialog.querySelectorAll('.react-grab-ai-option');
-  const sendButton = document.getElementById('react-grab-send');
-  const textarea = document.getElementById('react-grab-prompt');
-
-  aiOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      aiOptions.forEach(opt => opt.classList.remove('selected'));
-      option.classList.add('selected');
-      selectedAI = option.dataset.ai;
-      sendButton.textContent = selectedAI === 'copilot' ? 'Send to Copilot' : 'Send to Claude';
-    });
-  });
-
-  // Focus on textarea
-  textarea.focus();
-
-  // Handle close button
-  document.getElementById('react-grab-close').onclick = () => {
+  // Handle send to Copilot
+  sendCopilotBtn.onclick = () => {
+    sendToAI('copilot', contextTextarea.value, promptTextarea.value, context);
     dialog.remove();
-    // Resume monitoring
-    startClipboardMonitoring();
   };
 
-  // Handle cancel button
-  document.getElementById('react-grab-cancel').onclick = () => {
+  // Handle send to Claude
+  sendClaudeBtn.onclick = () => {
+    sendToAI('claude', contextTextarea.value, promptTextarea.value, context);
     dialog.remove();
-    // Resume monitoring
-    startClipboardMonitoring();
   };
 
-  // Handle send button
-  document.getElementById('react-grab-send').onclick = () => {
-    const prompt = textarea.value.trim();
-    if (prompt) {
-      sendToVSCode('prompt', {
-        prompt: prompt,
-        elementInfo: {
-          componentName: componentInfo.componentName,
-          jsx: componentInfo.jsx,
-          props: componentInfo.props
-        },
-        target: selectedAI
-      });
-      dialog.remove();
-      // Resume monitoring
-      startClipboardMonitoring();
-    } else {
-      textarea.classList.add('error');
-      setTimeout(() => textarea.classList.remove('error'), 500);
-    }
+  // Handle close
+  closeBtn.onclick = () => {
+    dialog.remove();
   };
 
-  // Handle Enter key (Ctrl/Cmd + Enter to send)
-  textarea.onkeydown = (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      document.getElementById('react-grab-send').click();
-    }
+  // Handle cancel
+  cancelBtn.onclick = () => {
+    dialog.remove();
   };
 
-  // Handle Escape key
-  document.onkeydown = (e) => {
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e) => {
+    // Escape to close
     if (e.key === 'Escape') {
       dialog.remove();
-      // Resume monitoring
-      startClipboardMonitoring();
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+
+    // Cmd/Ctrl + Enter to send to Copilot (default)
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        // Cmd/Ctrl + Shift + Enter for Claude
+        sendClaudeBtn.click();
+      } else {
+        // Cmd/Ctrl + Enter for Copilot
+        sendCopilotBtn.click();
+      }
+      document.removeEventListener('keydown', handleKeyDown);
     }
   };
+
+  document.addEventListener('keydown', handleKeyDown);
+
+  // Click outside to close
+  dialog.onclick = (e) => {
+    if (e.target === dialog) {
+      dialog.remove();
+      document.removeEventListener('keydown', handleKeyDown);
+    }
+  };
+}
+
+/**
+ * Send context and prompt to AI assistant
+ */
+function sendToAI(target, contextValue, additionalPrompt, originalContext) {
+  // Build the final prompt
+  let finalPrompt = '';
+
+  if (additionalPrompt.trim()) {
+    finalPrompt = additionalPrompt.trim();
+  } else {
+    finalPrompt = 'Analyze this React component:';
+  }
+
+  // Send to VSCode
+  sendToVSCode('prompt', {
+    prompt: finalPrompt,
+    target: target,
+    elementInfo: {
+      componentName: originalContext.componentName,
+      jsx: originalContext.jsx,
+      props: originalContext.props,
+      filePath: originalContext.filePath,
+      path: originalContext.path,
+      tagName: originalContext.tagName,
+      className: originalContext.className,
+      id: originalContext.id,
+      markdownContext: contextValue
+    }
+  });
+}
+
+/**
+ * Generate default markdown if not provided
+ */
+function generateDefaultMarkdown(context) {
+  let markdown = `## ${context.componentName || 'Unknown'}\n\n`;
+
+  if (context.filePath) {
+    markdown += `**Source:** \`${context.filePath}\`\n\n`;
+  }
+
+  if (context.path) {
+    markdown += `**Element Path:** \`${context.path}\`\n\n`;
+  }
+
+  if (context.jsx) {
+    markdown += `### JSX\n\`\`\`jsx\n${context.jsx}\n\`\`\`\n\n`;
+  }
+
+  if (context.props && Object.keys(context.props).length > 0) {
+    markdown += `### Props\n\`\`\`json\n${JSON.stringify(context.props, null, 2)}\n\`\`\`\n\n`;
+  }
+
+  if (context.tagName) {
+    markdown += `### Element Info\n`;
+    markdown += `- **Tag:** \`${context.tagName}\`\n`;
+    if (context.id) {
+      markdown += `- **ID:** \`${context.id}\`\n`;
+    }
+    if (context.className) {
+      markdown += `- **Classes:** \`${context.className}\`\n`;
+    }
+  }
+
+  return markdown;
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Setup clipboard listener to detect react-grab copy events
+ * react-grab copies component info to clipboard when element is selected
+ */
+function setupClipboardListener() {
+  // Listen for copy events
+  document.addEventListener('copy', handleCopyEvent);
+
+  // Also periodically check clipboard for react-grab content
+  // This is a fallback for when copy event is not triggered
+  let lastClipboardContent = '';
+
+  async function checkClipboard() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text !== lastClipboardContent) {
+        // Check if it looks like react-grab markdown output
+        if (isReactGrabContent(text)) {
+          lastClipboardContent = text;
+          console.log('[React Grab Bridge] Detected react-grab content in clipboard');
+          const context = parseReactGrabContent(text);
+          if (context) {
+            showComponentDialog(context);
+          }
+        }
+      }
+    } catch (err) {
+      // Clipboard access might be denied - this is normal
+    }
+  }
+
+  // Check clipboard when window gains focus (user might have copied in react-grab)
+  window.addEventListener('focus', () => {
+    setTimeout(checkClipboard, 100);
+  });
+}
+
+/**
+ * Handle copy event to detect react-grab output
+ */
+function handleCopyEvent(event) {
+  // Small delay to let react-grab update the clipboard
+  setTimeout(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && isReactGrabContent(text)) {
+        console.log('[React Grab Bridge] Detected react-grab copy event');
+        const context = parseReactGrabContent(text);
+        if (context) {
+          showComponentDialog(context);
+        }
+      }
+    } catch (err) {
+      // Clipboard access might be denied
+    }
+  }, 100);
+}
+
+/**
+ * Check if text content looks like react-grab output
+ */
+function isReactGrabContent(text) {
+  if (!text || typeof text !== 'string') return false;
+
+  // react-grab outputs markdown with specific patterns
+  // Check for common patterns in react-grab output
+  const patterns = [
+    /^##\s+\w+/m,                    // Markdown heading with component name
+    /\*\*Source:\*\*/,               // Source file indicator
+    /```jsx/,                        // JSX code block
+    /```json/,                       // JSON code block (for props)
+    /<[A-Z][a-zA-Z]*[\s/>]/,         // JSX component tag
+  ];
+
+  // Must match at least 2 patterns to be considered react-grab content
+  let matchCount = 0;
+  for (const pattern of patterns) {
+    if (pattern.test(text)) {
+      matchCount++;
+      if (matchCount >= 2) return true;
+    }
+  }
+
+  // Also check for JSX-like content
+  if (text.includes('<') && (text.includes('/>') || text.includes('</'))) {
+    // Check if it has component-like structure
+    if (/^<[A-Z]/.test(text.trim()) || /\n<[A-Z]/.test(text)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Show status indicator
@@ -469,17 +804,18 @@ function showStatusIndicator(status) {
 
   switch (status) {
     case 'connected':
-      indicator.textContent = '🟢 Connected to VSCode';
+      indicator.textContent = 'Connected to VSCode';
+      indicator.style.display = 'block';
       setTimeout(() => {
         if (indicator) indicator.style.display = 'none';
       }, 3000);
       break;
     case 'disconnected':
-      indicator.textContent = '🔴 Disconnected from VSCode';
+      indicator.textContent = 'Disconnected from VSCode';
       indicator.style.display = 'block';
       break;
     case 'error':
-      indicator.textContent = '⚠️ Connection Error';
+      indicator.textContent = 'Connection Error';
       indicator.style.display = 'block';
       break;
   }
@@ -499,62 +835,6 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
-// Removed activateReactGrab function as react-grab uses Cmd/Ctrl+C hold & click, not programmatic activation
-
-/**
- * Track if Cmd/Ctrl+C is being held
- */
-let isGrabKeyHeld = false;
-
-/**
- * Listen for keyboard shortcuts
- */
-document.addEventListener('keydown', (e) => {
-  if (!extensionEnabled) return;
-
-  // Cmd+C (Mac) or Ctrl+C (Windows/Linux) - Monitor for react-grab activation
-  // react-grab works by holding Cmd/Ctrl+C and clicking on elements
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
-    if (!isGrabKeyHeld) {
-      isGrabKeyHeld = true;
-      console.log('[React Grab Bridge] Detected Cmd/Ctrl+C - Starting clipboard monitoring for react-grab');
-
-      // Start monitoring clipboard for react-grab output
-      startClipboardMonitoring();
-
-      // Show instruction
-      showNotification('Hold Cmd/Ctrl+C and click any element to capture it', 'info');
-
-      // Auto-stop after 10 seconds if nothing happens
-      setTimeout(() => {
-        if (isMonitoringClipboard && isGrabKeyHeld) {
-          stopClipboardMonitoring();
-          showNotification('React-grab listening timeout', 'info');
-          isGrabKeyHeld = false;
-        }
-      }, 10000);
-    }
-  }
-}, true); // Use capture phase to detect the event early
-
-// Listen for key release to stop monitoring
-document.addEventListener('keyup', (e) => {
-  if (!extensionEnabled) return;
-
-  // When Cmd/Ctrl or C is released, stop monitoring
-  if (isGrabKeyHeld && (e.key === 'Meta' || e.key === 'Control' || e.key.toLowerCase() === 'c')) {
-    console.log('[React Grab Bridge] Cmd/Ctrl+C released');
-    isGrabKeyHeld = false;
-
-    // Keep monitoring for a bit longer in case the user already clicked
-    setTimeout(() => {
-      if (!isGrabKeyHeld && isMonitoringClipboard) {
-        stopClipboardMonitoring();
-      }
-    }, 2000);
-  }
-}, true);
-
 // Handle messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'checkConnection') {
@@ -562,6 +842,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   } else if (request.type === 'toggleExtension') {
     extensionEnabled = request.enabled;
     handleExtensionToggle(request.enabled);
+  } else if (request.type === 'activateReactGrab') {
+    // Activate react-grab from popup
+    window.postMessage({ type: 'react-grab-activate' }, '*');
+    sendResponse({ success: true });
   }
   return true;
 });
@@ -572,7 +856,6 @@ function handleExtensionToggle(enabled) {
 
   if (!enabled) {
     // Disable all features
-    stopClipboardMonitoring();
     if (ws) {
       ws.close();
       ws = null;
@@ -608,53 +891,6 @@ async function checkHostSettings() {
   }
 }
 
-// Check if react-grab is available on the page
-function checkReactGrabAvailability() {
-  const script = document.createElement('script');
-  script.textContent = `
-    (function() {
-      let hasReactGrab = false;
-
-      // Check various ways react-grab might be exposed
-      if (window.ReactGrab) {
-        hasReactGrab = true;
-        console.log('[React Grab Bridge] ✅ react-grab detected via window.ReactGrab');
-      } else if (window.grab) {
-        hasReactGrab = true;
-        console.log('[React Grab Bridge] ✅ react-grab detected via window.grab');
-      } else {
-        // Check if React components are using react-grab
-        const reactRoot = document.querySelector('#root');
-        if (reactRoot && reactRoot._reactRootContainer) {
-          console.log('[React Grab Bridge] React app detected, react-grab may be available internally');
-          hasReactGrab = 'possible';
-        }
-      }
-
-      // Send message to content script
-      window.postMessage({
-        type: 'react-grab-check',
-        hasReactGrab: hasReactGrab
-      }, '*');
-    })();
-  `;
-  document.documentElement.appendChild(script);
-  script.remove();
-}
-
-// Listen for react-grab availability check
-window.addEventListener('message', (event) => {
-  if (event.data.type === 'react-grab-check') {
-    if (event.data.hasReactGrab === true) {
-      console.log('[React Grab Bridge] react-grab is available on this page');
-    } else if (event.data.hasReactGrab === 'possible') {
-      console.log('[React Grab Bridge] React app detected, react-grab may be available');
-    } else {
-      console.log('[React Grab Bridge] react-grab not detected. Make sure to install it: npm install react-grab');
-    }
-  }
-});
-
 // Initialize
 async function initialize() {
   console.log('[React Grab Bridge] Initializing...');
@@ -663,26 +899,39 @@ async function initialize() {
   const enabled = await checkHostSettings();
 
   if (enabled) {
+    // Inject the inject.js script first
+    injectScript();
+
+    // Connect to VSCode
     connectWebSocket();
 
-    // Check for react-grab availability
-    setTimeout(checkReactGrabAvailability, 1000);
+    // Setup listeners for react-grab events
+    setupReactGrabListeners();
+
+    // Check for react-grab after a short delay
+    setTimeout(() => {
+      checkReactGrabAvailability();
+    }, 1000);
+
+    // Also listen for clipboard copy events (fallback for react-grab)
+    setupClipboardListener();
 
     // Show instructions
     console.log(`
-╔══════════════════════════════════════════════════╗
-║     React Grab to VSCode/AI Bridge Active       ║
-╠══════════════════════════════════════════════════╣
-║ 1. Make sure react-grab is installed in your    ║
-║    React app: npm install react-grab            ║
-║                                                  ║
-║ 2. Hold Cmd+C (Mac) or Ctrl+C (Windows/Linux)   ║
-║                                                  ║
-║ 3. While holding, click any React component     ║
-║    to capture it                                ║
-║                                                  ║
-║ 4. Use the dialog to copy info or send to AI    ║
-╚══════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════╗
+║     React Grab to VSCode/AI Bridge Active            ║
+╠══════════════════════════════════════════════════════╣
+║                                                      ║
+║ react-grab will be automatically detected or loaded. ║
+║                                                      ║
+║ Use the react-grab shortcut (usually Option/Alt +   ║
+║ Click) to select React components.                  ║
+║                                                      ║
+║ A dialog will appear to send the component to:       ║
+║   - GitHub Copilot                                   ║
+║   - Claude Code                                      ║
+║                                                      ║
+╚══════════════════════════════════════════════════════╝
     `);
   } else {
     console.log('[React Grab Bridge] Extension disabled for this host');
@@ -697,7 +946,6 @@ if (document.readyState === 'loading') {
 
 // Clean up on page unload
 window.addEventListener('beforeunload', () => {
-  stopClipboardMonitoring();
   if (ws) {
     ws.close();
   }
