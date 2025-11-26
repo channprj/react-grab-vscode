@@ -3,6 +3,8 @@
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+> This project is highly inspired by [@aidenybai](https://github.com/aidenybai) and his [react-grab](https://github.com/aidenybai/react-grab)
+
 Bridge between React element selection in the browser and AI assistants (GitHub Copilot & Claude Code) in VSCode.
 
 <video src="https://github.com/user-attachments/assets/ca4e3081-3c89-47e1-aabb-2e02b2a744f8" width="600"></video>
