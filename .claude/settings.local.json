@@ -16,7 +16,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:unpkg.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "WebFetch(domain:www.react-grab.com)"
+      "WebFetch(domain:www.react-grab.com)",
+      "WebFetch(domain:api.github.com)"
     ],
     "deny": [],
     "ask": []

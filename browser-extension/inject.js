@@ -1,121 +1,170 @@
 /**
  * Injected script that runs in the page context
- * This has access to React DevTools, page variables, and react-grab API
+ * Provides React component detection via fiber traversal
+ * Similar to react-grab's approach
  */
 
 (function() {
   'use strict';
 
-  // State for react-grab API instance
-  let reactGrabApi = null;
+  // React internal property prefixes (vary by React version)
+  const FIBER_PREFIXES = [
+    '__reactFiber$',
+    '__reactInternalInstance$',
+    '_reactRootContainer'
+  ];
 
-  // Function to get React component information from an element
-  function getReactComponentInfo(element) {
-    // Try different React internal property names (they vary by React version)
-    const reactInternalKeys = [
-      '__reactFiber$',
-      '__reactInternalInstance$',
-      '_reactInternalFiber',
-      '_reactInternalInstance',
-      '_reactInternalComponent',
-      '__reactInternalInstance',
-      '__reactFiber',
-    ];
+  // Components to exclude (internal/framework components)
+  const EXCLUDED_COMPONENTS = [
+    'Fragment',
+    'Suspense',
+    'StrictMode',
+    'Profiler',
+    'Provider',
+    'Consumer',
+    'Context',
+    'Portal',
+    'Boundary',
+    'ErrorBoundary',
+    'ForwardRef',
+    'Memo',
+    'Lazy',
+  ];
 
-    // Check for keys that start with the prefix (React adds random suffixes)
+  // Component name prefixes to exclude
+  const EXCLUDED_PREFIXES = ['_', '$'];
+
+  /**
+   * Get React fiber from a DOM element
+   */
+  function getFiberFromElement(element) {
+    if (!element) return null;
+
     for (const key of Object.keys(element)) {
-      for (const prefix of reactInternalKeys) {
+      for (const prefix of FIBER_PREFIXES) {
         if (key.startsWith(prefix)) {
-          const fiber = element[key];
-          return extractFiberInfo(fiber);
+          return element[key];
         }
       }
     }
+    return null;
+  }
 
-    // Fallback to exact key matches
-    for (const key of reactInternalKeys) {
-      if (element[key]) {
-        const fiber = element[key];
-        return extractFiberInfo(fiber);
-      }
+  /**
+   * Check if a fiber is a valid user component (not internal)
+   */
+  function isValidComponent(fiber) {
+    if (!fiber) return false;
+
+    const type = fiber.type;
+    if (!type) return false;
+
+    // Must be a function component or class component
+    if (typeof type !== 'function' && typeof type !== 'object') return false;
+
+    const name = getComponentName(fiber);
+    if (!name) return false;
+
+    // Exclude internal components
+    if (EXCLUDED_COMPONENTS.includes(name)) return false;
+
+    // Exclude components starting with _ or $
+    for (const prefix of EXCLUDED_PREFIXES) {
+      if (name.startsWith(prefix)) return false;
+    }
+
+    // Must start with uppercase (React component convention)
+    if (!/^[A-Z]/.test(name)) return false;
+
+    return true;
+  }
+
+  /**
+   * Get component name from fiber
+   */
+  function getComponentName(fiber) {
+    if (!fiber) return null;
+
+    const type = fiber.type;
+    if (!type) return null;
+
+    // Function or class component
+    if (typeof type === 'function') {
+      return type.displayName || type.name || null;
+    }
+
+    // ForwardRef, Memo, etc.
+    if (typeof type === 'object') {
+      if (type.displayName) return type.displayName;
+      if (type.render?.displayName) return type.render.displayName;
+      if (type.render?.name) return type.render.name;
+      if (type.type?.displayName) return type.type.displayName;
+      if (type.type?.name) return type.type.name;
     }
 
     return null;
   }
 
-  // Extract component info from React fiber
-  function extractFiberInfo(fiber) {
-    if (!fiber) return null;
-
-    // Try to get component name
-    let componentName = 'Unknown';
-    let filePath = null;
-
-    if (fiber.elementType) {
-      if (typeof fiber.elementType === 'function') {
-        componentName = fiber.elementType.displayName ||
-                      fiber.elementType.name ||
-                      'Anonymous';
-
-        // Try to get source file from _debugSource
-        if (fiber._debugSource) {
-          filePath = fiber._debugSource.fileName;
-        }
-      } else if (typeof fiber.elementType === 'string') {
-        componentName = fiber.elementType;
+  /**
+   * Traverse fiber tree upward to find component
+   */
+  function findComponentFiber(fiber, predicate) {
+    let current = fiber;
+    while (current) {
+      if (predicate(current)) {
+        return current;
       }
-    } else if (fiber._currentElement && fiber._currentElement.type) {
-      const type = fiber._currentElement.type;
-      componentName = type.displayName || type.name || 'Anonymous';
+      current = current.return;
     }
-
-    // Walk up the fiber tree to find the nearest component
-    let currentFiber = fiber;
-    while (currentFiber && componentName === 'Unknown') {
-      if (currentFiber.type && typeof currentFiber.type === 'function') {
-        componentName = currentFiber.type.displayName ||
-                       currentFiber.type.name ||
-                       'Anonymous';
-        if (currentFiber._debugSource) {
-          filePath = currentFiber._debugSource.fileName;
-        }
-        break;
-      }
-      currentFiber = currentFiber.return;
-    }
-
-    // Try to get props
-    let props = {};
-    if (fiber.memoizedProps) {
-      props = sanitizeProps(fiber.memoizedProps);
-    } else if (fiber._currentElement && fiber._currentElement.props) {
-      props = sanitizeProps(fiber._currentElement.props);
-    }
-
-    return {
-      componentName,
-      props,
-      filePath,
-      fiber
-    };
+    return null;
   }
 
-  // Sanitize props for display (remove functions, circular refs, etc.)
-  function sanitizeProps(props) {
+  /**
+   * Get source file info from fiber
+   */
+  function getSourceInfo(fiber) {
+    if (!fiber) return null;
+
+    // Try _debugSource (available in development mode)
+    if (fiber._debugSource) {
+      return {
+        fileName: fiber._debugSource.fileName,
+        lineNumber: fiber._debugSource.lineNumber,
+        columnNumber: fiber._debugSource.columnNumber
+      };
+    }
+
+    // Try walking up the tree
+    let current = fiber;
+    while (current) {
+      if (current._debugSource) {
+        return {
+          fileName: current._debugSource.fileName,
+          lineNumber: current._debugSource.lineNumber,
+          columnNumber: current._debugSource.columnNumber
+        };
+      }
+      current = current.return;
+    }
+
+    return null;
+  }
+
+  /**
+   * Sanitize props for display
+   */
+  function sanitizeProps(props, maxDepth = 3) {
     if (!props || typeof props !== 'object') return {};
 
-    const sanitized = {};
     const seen = new WeakSet();
 
-    function sanitizeValue(value, depth = 0) {
-      if (depth > 3) return '[nested]';
-
-      if (value === null || value === undefined) {
-        return value;
-      }
+    function sanitize(value, depth) {
+      if (depth > maxDepth) return '[...]';
+      if (value === null) return null;
+      if (value === undefined) return undefined;
 
       if (typeof value === 'function') {
-        return `[Function: ${value.name || 'anonymous'}]`;
+        return `ƒ ${value.name || 'anonymous'}()`;
       }
 
       if (typeof value === 'symbol') {
@@ -123,30 +172,42 @@
       }
 
       if (value instanceof Element || value instanceof Node) {
-        return '[DOM Element]';
+        return '[DOM]';
       }
 
       if (typeof value === 'object') {
-        if (seen.has(value)) {
-          return '[Circular]';
-        }
+        if (seen.has(value)) return '[Circular]';
         seen.add(value);
 
-        if (Array.isArray(value)) {
-          return value.slice(0, 5).map(v => sanitizeValue(v, depth + 1));
+        // React element
+        if (value.$$typeof) {
+          const elementType = value.type;
+          const typeName = typeof elementType === 'function'
+            ? (elementType.displayName || elementType.name || 'Component')
+            : (typeof elementType === 'string' ? elementType : 'Element');
+          return `<${typeName} />`;
         }
 
-        // Check if it's a React element
-        if (value.$$typeof) {
-          return '[React Element]';
+        if (Array.isArray(value)) {
+          if (value.length > 5) {
+            return [...value.slice(0, 5).map(v => sanitize(v, depth + 1)), `...${value.length - 5} more`];
+          }
+          return value.map(v => sanitize(v, depth + 1));
         }
 
         const result = {};
         const keys = Object.keys(value).slice(0, 10);
         for (const key of keys) {
           if (!key.startsWith('_')) {
-            result[key] = sanitizeValue(value[key], depth + 1);
+            try {
+              result[key] = sanitize(value[key], depth + 1);
+            } catch {
+              result[key] = '[Error]';
+            }
           }
+        }
+        if (Object.keys(value).length > 10) {
+          result['...'] = `${Object.keys(value).length - 10} more`;
         }
         return result;
       }
@@ -154,49 +215,78 @@
       return value;
     }
 
+    const result = {};
     for (const [key, value] of Object.entries(props)) {
-      if (!key.startsWith('_') && key !== 'children') {
-        sanitized[key] = sanitizeValue(value);
+      if (key !== 'children' && !key.startsWith('_')) {
+        result[key] = sanitize(value, 0);
       }
     }
-
-    return sanitized;
+    return result;
   }
 
-  // Function to get element path (like DevTools shows)
-  function getElementPath(element) {
-    const path = [];
-    let current = element;
+  /**
+   * Get component info from an element
+   */
+  function getComponentInfo(element) {
+    const fiber = getFiberFromElement(element);
+    if (!fiber) return null;
 
-    while (current && current !== document.body) {
-      let selector = current.tagName.toLowerCase();
+    // Find the nearest valid component
+    const componentFiber = findComponentFiber(fiber, isValidComponent);
+    if (!componentFiber) return null;
 
-      if (current.id) {
-        selector += `#${current.id}`;
-      } else if (current.className && typeof current.className === 'string') {
-        const classes = current.className.split(' ').filter(c => c).slice(0, 2);
-        if (classes.length > 0) {
-          selector += '.' + classes.join('.');
+    const name = getComponentName(componentFiber);
+    if (!name) return null;
+
+    const sourceInfo = getSourceInfo(componentFiber);
+    const props = componentFiber.memoizedProps
+      ? sanitizeProps(componentFiber.memoizedProps)
+      : {};
+
+    return {
+      name,
+      props,
+      source: sourceInfo,
+      fiber: componentFiber
+    };
+  }
+
+  /**
+   * Find all parent components of an element
+   */
+  function getComponentStack(element) {
+    const fiber = getFiberFromElement(element);
+    if (!fiber) return [];
+
+    const stack = [];
+    let current = fiber;
+
+    while (current) {
+      if (isValidComponent(current)) {
+        const name = getComponentName(current);
+        if (name && !stack.some(s => s.name === name)) {
+          const sourceInfo = getSourceInfo(current);
+          stack.push({
+            name,
+            source: sourceInfo
+          });
         }
       }
-
-      path.unshift(selector);
-      current = current.parentElement;
+      current = current.return;
     }
 
-    return path.join(' > ');
+    return stack;
   }
 
-  // Generate JSX representation of the element
-  function generateJSXRepresentation(element, reactInfo) {
-    if (!element) return '';
+  /**
+   * Generate JSX representation
+   */
+  function generateJSX(element, componentInfo) {
+    const tagName = componentInfo?.name || element.tagName.toLowerCase();
+    const props = componentInfo?.props || {};
 
-    const componentName = reactInfo?.componentName || element.tagName.toLowerCase();
-    const props = reactInfo?.props || {};
+    let jsx = `<${tagName}`;
 
-    let jsx = `<${componentName}`;
-
-    // Add props
     for (const [key, value] of Object.entries(props)) {
       if (typeof value === 'string') {
         jsx += ` ${key}="${value}"`;
@@ -204,25 +294,30 @@
         jsx += ` ${key}`;
       } else if (typeof value === 'number') {
         jsx += ` ${key}={${value}}`;
-      } else if (typeof value === 'function' || (typeof value === 'string' && value.startsWith('[Function'))) {
+      } else if (typeof value === 'function' || (typeof value === 'string' && value.startsWith('ƒ '))) {
         jsx += ` ${key}={...}`;
-      } else {
-        jsx += ` ${key}={${JSON.stringify(value)}}`;
+      } else if (value !== null && value !== undefined) {
+        const str = JSON.stringify(value);
+        if (str.length < 50) {
+          jsx += ` ${key}={${str}}`;
+        } else {
+          jsx += ` ${key}={...}`;
+        }
       }
     }
 
-    // Check for children
-    const hasChildren = element.children.length > 0 || element.textContent?.trim();
+    const textContent = element.textContent?.trim();
+    const hasChildren = element.children.length > 0 || (textContent && textContent.length > 0);
 
     if (hasChildren) {
       jsx += '>';
-      if (element.children.length === 0 && element.textContent?.trim()) {
-        jsx += element.textContent.trim().substring(0, 50);
-        if (element.textContent.trim().length > 50) jsx += '...';
+      if (element.children.length === 0 && textContent) {
+        const truncated = textContent.length > 50 ? textContent.slice(0, 50) + '...' : textContent;
+        jsx += truncated;
       } else {
         jsx += '...';
       }
-      jsx += `</${componentName}>`;
+      jsx += `</${tagName}>`;
     } else {
       jsx += ' />';
     }
@@ -230,323 +325,232 @@
     return jsx;
   }
 
-  // Generate markdown context for the component
-  function generateMarkdownContext(element, reactInfo) {
-    const componentName = reactInfo?.componentName || 'Unknown';
-    const props = reactInfo?.props || {};
-    const filePath = reactInfo?.filePath;
-    const elementPath = getElementPath(element);
-    const jsx = generateJSXRepresentation(element, reactInfo);
+  /**
+   * Generate markdown context
+   */
+  function generateMarkdown(element, componentInfo, componentStack) {
+    const name = componentInfo?.name || 'Unknown';
+    const props = componentInfo?.props || {};
+    const source = componentInfo?.source;
 
-    let markdown = `## ${componentName}\n\n`;
+    let md = `## ${name}\n\n`;
 
-    if (filePath) {
-      markdown += `**Source:** \`${filePath}\`\n\n`;
+    if (source?.fileName) {
+      const shortPath = source.fileName.replace(/^.*[\/\\]/, '');
+      md += `**Source:** \`${shortPath}`;
+      if (source.lineNumber) {
+        md += `:${source.lineNumber}`;
+      }
+      md += '`\n\n';
     }
 
-    markdown += `**Element Path:** \`${elementPath}\`\n\n`;
-
-    markdown += `### JSX\n\`\`\`jsx\n${jsx}\n\`\`\`\n\n`;
+    const jsx = generateJSX(element, componentInfo);
+    md += `### JSX\n\`\`\`jsx\n${jsx}\n\`\`\`\n\n`;
 
     if (Object.keys(props).length > 0) {
-      markdown += `### Props\n\`\`\`json\n${JSON.stringify(props, null, 2)}\n\`\`\`\n\n`;
+      md += `### Props\n\`\`\`json\n${JSON.stringify(props, null, 2)}\n\`\`\`\n\n`;
     }
 
-    // Add element info
-    markdown += `### Element Info\n`;
-    markdown += `- **Tag:** \`${element.tagName.toLowerCase()}\`\n`;
+    if (componentStack.length > 1) {
+      md += `### Component Stack\n`;
+      for (const comp of componentStack.slice(0, 5)) {
+        md += `- ${comp.name}`;
+        if (comp.source?.fileName) {
+          const shortPath = comp.source.fileName.replace(/^.*[\/\\]/, '');
+          md += ` (\`${shortPath}\`)`;
+        }
+        md += '\n';
+      }
+      md += '\n';
+    }
+
+    // Element info
+    md += `### Element\n`;
+    md += `- **Tag:** \`${element.tagName.toLowerCase()}\`\n`;
     if (element.id) {
-      markdown += `- **ID:** \`${element.id}\`\n`;
+      md += `- **ID:** \`${element.id}\`\n`;
     }
-    if (element.className && typeof element.className === 'string') {
-      markdown += `- **Classes:** \`${element.className}\`\n`;
+    if (element.className && typeof element.className === 'string' && element.className.trim()) {
+      md += `- **Classes:** \`${element.className.trim()}\`\n`;
     }
 
-    // Add computed styles
-    const styles = window.getComputedStyle(element);
-    markdown += `- **Dimensions:** ${element.offsetWidth}x${element.offsetHeight}px\n`;
-    markdown += `- **Display:** \`${styles.display}\`\n`;
-    markdown += `- **Position:** \`${styles.position}\`\n`;
+    const rect = element.getBoundingClientRect();
+    md += `- **Size:** ${Math.round(rect.width)}×${Math.round(rect.height)}px\n`;
 
-    return markdown;
+    return md;
   }
 
-  // Extract complete context from an element
-  function extractElementContext(element) {
-    const reactInfo = getReactComponentInfo(element);
+  /**
+   * Main function to get full component context
+   */
+  function getElementContext(element) {
+    if (!element || !(element instanceof Element)) return null;
 
-    return {
-      componentName: reactInfo?.componentName || 'Unknown',
-      props: reactInfo?.props || {},
-      filePath: reactInfo?.filePath || null,
-      markdown: generateMarkdownContext(element, reactInfo),
-      jsx: generateJSXRepresentation(element, reactInfo),
-      tagName: element.tagName.toLowerCase(),
-      className: element.className || '',
-      id: element.id || '',
-      path: getElementPath(element)
+    const componentInfo = getComponentInfo(element);
+    const componentStack = getComponentStack(element);
+
+    const context = {
+      componentName: componentInfo?.name || element.tagName.toLowerCase(),
+      props: componentInfo?.props || {},
+      source: componentInfo?.source || null,
+      componentStack: componentStack,
+      jsx: generateJSX(element, componentInfo),
+      markdown: generateMarkdown(element, componentInfo, componentStack),
+      element: {
+        tagName: element.tagName.toLowerCase(),
+        id: element.id || '',
+        className: element.className || '',
+        rect: element.getBoundingClientRect()
+      }
     };
+
+    return context;
   }
 
-  // Check if React is loaded on the page
-  function detectReact() {
-    // Check for React DevTools hook
-    if (window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-      return true;
-    }
+  /**
+   * Check if element is interactive (visible, has pointer-events)
+   */
+  function isInteractiveElement(element) {
+    if (!element || !(element instanceof Element)) return false;
 
-    // Check for React fiber in any DOM element
-    const rootElement = document.getElementById('root') || document.getElementById('app') || document.body.firstElementChild;
-    if (rootElement) {
-      for (const key of Object.keys(rootElement)) {
-        if (key.startsWith('__reactFiber') || key.startsWith('__reactInternalInstance') || key.startsWith('_reactRootContainer')) {
-          return true;
+    const style = window.getComputedStyle(element);
+
+    // Check visibility
+    if (style.display === 'none') return false;
+    if (style.visibility === 'hidden') return false;
+    if (style.opacity === '0') return false;
+    if (style.pointerEvents === 'none') return false;
+
+    // Check if element has size
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    return true;
+  }
+
+  /**
+   * Find the best element at a point (with React component)
+   */
+  function findComponentElementAtPoint(x, y) {
+    const elements = document.elementsFromPoint(x, y);
+
+    for (const element of elements) {
+      // Skip our overlay elements
+      if (element.classList.contains('react-grab-bridge-overlay') ||
+          element.classList.contains('react-grab-bridge-label') ||
+          element.closest('.react-grab-dialog') ||
+          element.closest('.react-grab-load-prompt')) {
+        continue;
+      }
+
+      if (!isInteractiveElement(element)) continue;
+
+      // Check if this element has a React fiber
+      const fiber = getFiberFromElement(element);
+      if (fiber) {
+        // Find the nearest valid component
+        const componentFiber = findComponentFiber(fiber, isValidComponent);
+        if (componentFiber) {
+          return element;
         }
       }
     }
 
-    // Check for React on window
-    if (window.React || window.__REACT_DEVTOOLS_COMPONENT_FILTERS__) {
-      return true;
-    }
-
-    return false;
-  }
-
-  // Check if react-grab is loaded on the page (any version/method)
-  function detectReactGrab() {
-    // Check various ways react-grab might be exposed
-    const possibleGlobals = [
-      'ReactGrab',
-      'reactGrab',
-      '__REACT_GRAB__',
-      '__REACT_GRAB_GLOBAL__',
-      'grab',
-    ];
-
-    for (const name of possibleGlobals) {
-      if (window[name]) {
-        console.log(`[React Grab Bridge] Found react-grab via window.${name}:`, window[name]);
-        return { found: true, name, obj: window[name] };
+    // Fallback: return first interactive element
+    for (const element of elements) {
+      if (element.classList.contains('react-grab-bridge-overlay') ||
+          element.classList.contains('react-grab-bridge-label') ||
+          element.closest('.react-grab-dialog') ||
+          element.closest('.react-grab-load-prompt')) {
+        continue;
+      }
+      if (isInteractiveElement(element)) {
+        return element;
       }
     }
 
-    // Check if react-grab script is loaded by looking for its characteristic elements
-    const scripts = document.querySelectorAll('script[src*="react-grab"]');
-    if (scripts.length > 0) {
-      console.log('[React Grab Bridge] Found react-grab script tag');
-      return { found: true, name: 'script-tag', obj: null };
-    }
-
-    // Check for react-grab's characteristic DOM elements or styles
-    // react-grab adds overlay elements with specific attributes
-    const grabOverlay = document.querySelector('[data-react-grab]') ||
-                        document.querySelector('[data-react-grab-overlay]') ||
-                        document.querySelector('.react-grab-overlay');
-    if (grabOverlay) {
-      console.log('[React Grab Bridge] Found react-grab overlay element');
-      return { found: true, name: 'overlay-element', obj: null };
-    }
-
-    // Check if react-grab has patched copy behavior (check for specific event listeners)
-    // This is heuristic - react-grab listens for Option/Alt + hover and Cmd/Ctrl + C
-    // We can't directly detect this, but we can assume it's loaded if React is present
-    // and there are signs of react-grab activity
-
-    return { found: false, name: null, obj: null };
+    return null;
   }
 
-  // Check if this is a React app (prerequisite for react-grab)
-  function isReactApp() {
-    return detectReact();
-  }
-
-  // Setup react-grab callbacks if react-grab is available
-  function setupReactGrabCallbacks() {
-    const detection = detectReactGrab();
-
-    if (!detection.found) {
-      return false;
-    }
-
-    // Check various ways react-grab might expose its init function
-    const initFunctions = [
-      detection.obj?.init,
-      window.ReactGrab?.init,
-      window.reactGrab?.init,
-      window.__REACT_GRAB__?.init,
-      window.__REACT_GRAB_GLOBAL__?.init,
-    ].filter(Boolean);
-
-    const reactGrabInit = initFunctions[0];
-
-    if (reactGrabInit && typeof reactGrabInit === 'function') {
-      try {
-        reactGrabApi = reactGrabInit({
-          onElementSelect: (element) => {
-            console.log('[React Grab Bridge] Element selected via react-grab API');
-            const context = extractElementContext(element);
-
-            // Send to content script via postMessage
-            window.postMessage({
-              type: 'react-grab-element-selected',
-              context: context
-            }, '*');
-          },
-          onCopySuccess: (elements, content) => {
-            console.log('[React Grab Bridge] Copy success via react-grab API');
-            window.postMessage({
-              type: 'react-grab-copy-success',
-              content: content
-            }, '*');
-          },
-          onStateChange: (state) => {
-            console.log('[React Grab Bridge] State change:', state);
-            window.postMessage({
-              type: 'react-grab-state-change',
-              isActive: state?.isActive || false
-            }, '*');
-          }
-        });
-
-        // Store API reference for external access
-        window.__reactGrabBridgeApi = reactGrabApi;
-
-        console.log('[React Grab Bridge] Successfully initialized react-grab callbacks');
-
-        // Notify content script that react-grab is ready with full API
-        window.postMessage({
-          type: 'react-grab-ready',
-          hasApi: true,
-          hasInitApi: true
-        }, '*');
-
-        return true;
-      } catch (error) {
-        console.error('[React Grab Bridge] Failed to initialize react-grab callbacks:', error);
-      }
-    }
-
-    // react-grab is loaded but doesn't expose init() - it's using auto-init mode
-    // In this mode, react-grab automatically copies to clipboard on selection
-    // We'll detect this via clipboard monitoring in content-script.js
-    console.log('[React Grab Bridge] react-grab detected but init() not available - using clipboard fallback');
-
-    window.postMessage({
-      type: 'react-grab-ready',
-      hasApi: true,
-      hasInitApi: false,
-      detectionMethod: detection.name
-    }, '*');
-
-    return true; // Return true because react-grab IS loaded, just not with programmatic API
-  }
-
-  // Try to setup react-grab callbacks
-  function trySetupReactGrab() {
-    if (setupReactGrabCallbacks()) {
-      return;
-    }
-
-    // If react-grab is not immediately available, wait for it
-    let attempts = 0;
-    const maxAttempts = 20;
-    const checkInterval = setInterval(() => {
-      attempts++;
-      if (setupReactGrabCallbacks() || attempts >= maxAttempts) {
-        clearInterval(checkInterval);
-
-        if (attempts >= maxAttempts) {
-          const hasReact = isReactApp();
-          console.log('[React Grab Bridge] react-grab not found after waiting, will use fallback mode');
-          console.log('[React Grab Bridge] React detected:', hasReact);
-
-          window.postMessage({
-            type: 'react-grab-ready',
-            hasApi: false,
-            hasReact: hasReact,
-            message: hasReact
-              ? 'React app detected. If react-grab is installed, use Option/Alt + hover and Cmd/Ctrl + C to copy components.'
-              : 'No React app detected on this page.'
-          }, '*');
-        }
-      }
-    }, 500);
-  }
-
-  // Listen for requests from content script
+  // Listen for messages from content script
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
 
     switch (event.data.type) {
-      case 'react-grab-get-info':
-        // Legacy: Direct element info request
-        handleGetInfoRequest(event.data);
-        break;
+      case 'GRAB_GET_ELEMENT_AT_POINT': {
+        const { x, y, requestId } = event.data;
+        const element = findComponentElementAtPoint(x, y);
 
-      case 'react-grab-activate':
-        // Activate react-grab selection mode
-        if (reactGrabApi && typeof reactGrabApi.activate === 'function') {
-          reactGrabApi.activate();
-          console.log('[React Grab Bridge] Activated react-grab');
-        } else {
-          console.warn('[React Grab Bridge] Cannot activate - react-grab API not available');
+        if (element) {
+          const context = getElementContext(element);
+          const rect = element.getBoundingClientRect();
+
           window.postMessage({
-            type: 'react-grab-activation-failed',
-            reason: 'API not available'
+            type: 'GRAB_ELEMENT_FOUND',
+            requestId,
+            context,
+            rect: {
+              top: rect.top,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+              bottom: rect.bottom,
+              right: rect.right
+            }
+          }, '*');
+        } else {
+          window.postMessage({
+            type: 'GRAB_ELEMENT_NOT_FOUND',
+            requestId
           }, '*');
         }
         break;
+      }
 
-      case 'react-grab-check-api':
-        // Check if react-grab API is available
-        const checkDetection = detectReactGrab();
-        window.postMessage({
-          type: 'react-grab-api-status',
-          hasApi: !!reactGrabApi || checkDetection.found,
-          hasInitApi: !!reactGrabApi,
-          apiMethods: reactGrabApi ? Object.keys(reactGrabApi) : [],
-          detectionMethod: checkDetection.name,
-          detectedObject: checkDetection.obj ? Object.keys(checkDetection.obj) : []
-        }, '*');
+      case 'GRAB_GET_CONTEXT': {
+        const { x, y, requestId } = event.data;
+        const element = findComponentElementAtPoint(x, y);
 
-        // Also send react-grab-ready if we found it
-        if (checkDetection.found && !reactGrabApi) {
-          // Try to setup callbacks one more time
-          setupReactGrabCallbacks();
+        if (element) {
+          const context = getElementContext(element);
+          window.postMessage({
+            type: 'GRAB_CONTEXT_RESULT',
+            requestId,
+            context
+          }, '*');
+        } else {
+          window.postMessage({
+            type: 'GRAB_CONTEXT_RESULT',
+            requestId,
+            context: null
+          }, '*');
         }
         break;
+      }
+
+      case 'GRAB_CHECK_REACT': {
+        const hasReact = !!window.__REACT_DEVTOOLS_GLOBAL_HOOK__ ||
+                        !!document.querySelector('[data-reactroot]') ||
+                        !!document.querySelector('#root, #app, #__next');
+
+        // Also check for fiber on common root elements
+        let hasFiber = false;
+        const roots = document.querySelectorAll('#root, #app, #__next, [data-reactroot]');
+        for (const root of roots) {
+          if (getFiberFromElement(root) || getFiberFromElement(root.firstElementChild)) {
+            hasFiber = true;
+            break;
+          }
+        }
+
+        window.postMessage({
+          type: 'GRAB_REACT_CHECK_RESULT',
+          hasReact: hasReact || hasFiber
+        }, '*');
+        break;
+      }
     }
   });
 
-  // Handle legacy get info request
-  function handleGetInfoRequest(data) {
-    const element = data.element;
-    if (!element) return;
-
-    const context = extractElementContext(element);
-
-    // Send info back to content script
-    window.dispatchEvent(new CustomEvent('react-grab-info-response', {
-      detail: context
-    }));
-  }
-
-  // Initialize
-  console.log('[React Grab Bridge] Injected script loaded');
-
-  // Try to setup react-grab callbacks
-  trySetupReactGrab();
-
-  // Also listen for the custom event (legacy support)
-  window.addEventListener('react-grab-get-info', (event) => {
-    const element = event.detail?.element;
-    if (!element) return;
-
-    const context = extractElementContext(element);
-
-    window.dispatchEvent(new CustomEvent('react-grab-info-response', {
-      detail: context
-    }));
-  });
+  console.log('[React Grab Bridge] Inject script loaded');
 })();

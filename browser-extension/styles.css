@@ -1,8 +1,46 @@
 /**
- * Styles for React Grab to Copilot/Claude Bridge
+ * React Grab Bridge - Styles
+ * Crosshair selection mode and dialog styles
  */
 
-/* Dialog styles */
+/* ============================================
+   Crosshair Mode
+   ============================================ */
+.react-grab-bridge-active,
+.react-grab-bridge-active * {
+  cursor: crosshair !important;
+}
+
+/* ============================================
+   Component Label Styles
+   ============================================ */
+.react-grab-bridge-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+.react-grab-label-name {
+  font-weight: 600;
+  color: white;
+}
+
+.react-grab-label-file {
+  font-size: 10px;
+  opacity: 0.75;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.react-grab-label-size {
+  font-size: 10px;
+  opacity: 0.6;
+  color: rgba(255, 255, 255, 0.8);
+  margin-left: auto;
+}
+
+/* ============================================
+   Dialog
+   ============================================ */
 .react-grab-dialog {
   position: fixed;
   top: 0;
@@ -15,7 +53,7 @@
   align-items: center;
   justify-content: center;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 @keyframes fadeIn {
@@ -29,9 +67,9 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   max-width: 600px;
   width: 90%;
-  max-height: 90vh;
+  max-height: 85vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  animation: slideUp 0.2s ease;
 }
 
 @keyframes slideUp {
@@ -45,8 +83,9 @@
   }
 }
 
+/* Header */
 .react-grab-dialog-header {
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e5e5e5;
   display: flex;
   justify-content: space-between;
@@ -57,11 +96,38 @@
   border-radius: 12px 12px 0 0;
 }
 
-.react-grab-dialog-header h3 {
+.react-grab-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.react-grab-component-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.react-grab-dialog-title h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: #0969da;
+  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.react-grab-file-badge {
+  font-size: 11px;
+  background: #f0f2f5;
+  color: #666;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-family: 'SF Mono', Monaco, monospace;
+  flex-shrink: 0;
 }
 
 .react-grab-dialog-close {
@@ -71,13 +137,15 @@
   color: #999;
   cursor: pointer;
   padding: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .react-grab-dialog-close:hover {
@@ -85,40 +153,19 @@
   color: #333;
 }
 
+/* Body */
 .react-grab-dialog-body {
-  padding: 24px;
+  padding: 20px;
 }
 
-/* Component summary */
-.react-grab-component-summary {
-  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.react-grab-component-summary .component-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #0969da;
-  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
-}
-
-.react-grab-component-summary .file-path {
-  font-size: 13px;
-  color: #666;
-  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
-}
-
-/* Context section */
-.react-grab-context-section {
+/* Sections */
+.react-grab-context-section,
+.react-grab-prompt-section {
   margin-bottom: 16px;
 }
 
-.react-grab-context-section label {
+.react-grab-context-section label,
+.react-grab-prompt-section label {
   display: block;
   font-size: 13px;
   font-weight: 500;
@@ -126,24 +173,22 @@
   margin-bottom: 8px;
 }
 
-/* Editable markdown context editor */
+/* Context Editor */
 .react-grab-context-editor {
   width: 100%;
-  min-height: 200px;
-  max-height: 400px;
+  min-height: 180px;
+  max-height: 300px;
   padding: 12px;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
   font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.5;
   resize: vertical;
-  overflow-y: auto;
-  white-space: pre-wrap;
   background: #f8f9fa;
   color: #333;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .react-grab-context-editor:focus {
@@ -153,30 +198,17 @@
   background: white;
 }
 
-/* Additional prompt section */
-.react-grab-additional-prompt {
-  margin-bottom: 16px;
-}
-
-.react-grab-additional-prompt label {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-/* Prompt input */
+/* Prompt Input */
 .react-grab-prompt-input {
   width: 100%;
-  min-height: 60px;
+  min-height: 80px;
   padding: 12px;
   border: 1px solid #e5e5e5;
   border-radius: 8px;
   font-family: inherit;
   font-size: 14px;
   resize: vertical;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   box-sizing: border-box;
 }
 
@@ -186,53 +218,24 @@
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
 }
 
-.react-grab-prompt-input.error {
-  border-color: #d1242f;
-  animation: shake 0.3s ease;
+.react-grab-prompt-input::placeholder {
+  color: #999;
 }
 
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-/* Copy actions */
-.react-grab-copy-actions {
-  margin-bottom: 16px;
-}
-
-/* Separate AI buttons */
-.react-grab-ai-buttons {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-/* Base button styles */
+/* Buttons */
 .react-grab-btn {
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   border: none;
   font-family: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-
-.react-grab-btn-primary {
-  background: #0969da;
-  color: white;
-}
-
-.react-grab-btn-primary:hover {
-  background: #0860ca;
-  box-shadow: 0 2px 8px rgba(9, 105, 218, 0.3);
 }
 
 .react-grab-btn-secondary {
@@ -246,14 +249,19 @@
   border-color: #c0c8d0;
 }
 
-/* Copilot button */
+/* AI Buttons */
+.react-grab-ai-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .react-grab-btn-copilot {
   flex: 1;
   background: linear-gradient(135deg, #0969da 0%, #0550b3 100%);
   color: white;
   padding: 14px 20px;
   font-weight: 600;
-  font-size: 15px;
 }
 
 .react-grab-btn-copilot:hover {
@@ -262,18 +270,12 @@
   transform: translateY(-1px);
 }
 
-.react-grab-btn-copilot:active {
-  transform: translateY(0);
-}
-
-/* Claude button */
 .react-grab-btn-claude {
   flex: 1;
   background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
   color: white;
   padding: 14px 20px;
   font-weight: 600;
-  font-size: 15px;
 }
 
 .react-grab-btn-claude:hover {
@@ -282,124 +284,22 @@
   transform: translateY(-1px);
 }
 
-.react-grab-btn-claude:active {
-  transform: translateY(0);
-}
-
-/* Button icon */
 .react-grab-btn .btn-icon {
-  font-size: 18px;
+  font-size: 16px;
 }
 
-/* Dialog footer */
+/* Footer */
 .react-grab-dialog-footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid #e5e5e5;
-  margin-top: 8px;
-}
-
-/* Load react-grab prompt */
-.react-grab-load-prompt {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 2147483646;
-  animation: slideUpNotification 0.3s ease;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.react-grab-load-prompt-content {
-  background: white;
-  padding: 16px 20px;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  border: 1px solid #e5e5e5;
-}
-
-.react-grab-load-prompt-content p {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.react-grab-load-prompt-content p:last-of-type {
-  margin-bottom: 12px;
-}
-
-/* Info prompt specific styles */
-.react-grab-info-prompt .react-grab-load-prompt-content {
-  max-width: 340px;
-}
-
-.react-grab-prompt-hint {
-  font-size: 13px;
-  color: #666;
-  line-height: 1.5;
-}
-
-.react-grab-prompt-hint code {
-  background: #f0f2f5;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
-  font-size: 12px;
-  color: #0969da;
-}
-
-.react-grab-load-prompt-actions {
-  display: flex;
   gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e5e5;
 }
 
-.react-grab-load-prompt-actions .react-grab-btn {
-  padding: 8px 14px;
-  font-size: 13px;
-}
-
-/* Status indicator */
-.react-grab-status {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  z-index: 2147483646;
-  animation: slideIn 0.3s ease;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-.react-grab-status-connected {
-  background: #2da44e;
-  color: white;
-}
-
-.react-grab-status-disconnected {
-  background: #d1242f;
-  color: white;
-}
-
-.react-grab-status-error {
-  background: #fb8500;
-  color: white;
-}
-
-/* Notification */
+/* ============================================
+   Notification
+   ============================================ */
 .react-grab-notification {
   position: fixed;
   bottom: 20px;
@@ -408,15 +308,15 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
-  z-index: 2147483646;
-  animation: slideUpNotification 0.3s ease;
+  z-index: 2147483647;
+  animation: slideUpNotification 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 @keyframes slideUpNotification {
   from {
-    transform: translateY(100%);
+    transform: translateY(20px);
     opacity: 0;
   }
   to {
@@ -451,107 +351,9 @@
   }
 }
 
-/* Legacy: Element info display (for backward compatibility) */
-.react-grab-element-info {
-  background: #f8f9fa;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #666;
-}
-
-.react-grab-element-info code {
-  color: #0969da;
-  font-family: 'SF Mono', Monaco, 'Inconsolata', 'Fira Code', monospace;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-/* Legacy: AI selection (for backward compatibility) */
-.react-grab-ai-selection {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.react-grab-ai-option {
-  flex: 1;
-  padding: 12px;
-  border: 2px solid #e5e5e5;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-}
-
-.react-grab-ai-option:hover {
-  border-color: #0969da;
-  background: #f0f7ff;
-}
-
-.react-grab-ai-option.selected {
-  border-color: #0969da;
-  background: #f0f7ff;
-}
-
-.react-grab-ai-option.copilot.selected {
-  border-color: #0969da;
-  background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%);
-}
-
-.react-grab-ai-option.claude.selected {
-  border-color: #8b5cf6;
-  background: linear-gradient(135deg, #f3f0ff 0%, #ede9fe 100%);
-}
-
-.react-grab-ai-option .icon {
-  font-size: 24px;
-  margin-bottom: 4px;
-}
-
-.react-grab-ai-option .name {
-  font-weight: 600;
-  font-size: 14px;
-  color: #333;
-}
-
-.react-grab-ai-option.copilot .icon {
-  color: #0969da;
-}
-
-.react-grab-ai-option.claude .icon {
-  color: #8b5cf6;
-}
-
-/* Actions section for copy buttons */
-.react-grab-actions {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.react-grab-actions .react-grab-btn {
-  flex: 1;
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-/* AI section separator */
-.react-grab-ai-section {
-  margin-top: 12px;
-}
-
-/* Dialog actions */
-.react-grab-dialog-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-/* Dark mode support */
+/* ============================================
+   Dark Mode
+   ============================================ */
 @media (prefers-color-scheme: dark) {
   .react-grab-dialog-content {
     background: #1c2128;
@@ -563,8 +365,13 @@
     border-bottom-color: #373e47;
   }
 
-  .react-grab-dialog-header h3 {
-    color: #adbac7;
+  .react-grab-dialog-title h3 {
+    color: #539bf5;
+  }
+
+  .react-grab-file-badge {
+    background: #373e47;
+    color: #768390;
   }
 
   .react-grab-dialog-close {
@@ -576,20 +383,11 @@
     color: #adbac7;
   }
 
-  /* Component summary dark */
-  .react-grab-component-summary {
-    background: linear-gradient(135deg, #2d333b 0%, #22272e 100%);
-  }
-
-  .react-grab-component-summary .component-name {
-    color: #539bf5;
-  }
-
-  .react-grab-component-summary .file-path {
+  .react-grab-context-section label,
+  .react-grab-prompt-section label {
     color: #768390;
   }
 
-  /* Context editor dark */
   .react-grab-context-editor {
     background: #22272e;
     border-color: #373e47;
@@ -602,7 +400,6 @@
     background: #2d333b;
   }
 
-  /* Prompt input dark */
   .react-grab-prompt-input {
     background: #22272e;
     border-color: #373e47;
@@ -614,47 +411,10 @@
     box-shadow: 0 0 0 3px rgba(83, 155, 245, 0.1);
   }
 
-  /* Section labels dark */
-  .react-grab-context-section label,
-  .react-grab-additional-prompt label {
-    color: #768390;
+  .react-grab-prompt-input::placeholder {
+    color: #636e7b;
   }
 
-  /* Element info dark */
-  .react-grab-element-info {
-    background: #2d333b;
-    color: #adbac7;
-  }
-
-  .react-grab-element-info code {
-    color: #539bf5;
-  }
-
-  /* AI option dark */
-  .react-grab-ai-option {
-    background: #22272e;
-    border-color: #373e47;
-    color: #adbac7;
-  }
-
-  .react-grab-ai-option:hover {
-    border-color: #539bf5;
-    background: #2d333b;
-  }
-
-  .react-grab-ai-option.copilot.selected {
-    background: linear-gradient(135deg, #1a3a52 0%, #1c4966 100%);
-  }
-
-  .react-grab-ai-option.claude.selected {
-    background: linear-gradient(135deg, #3b2e5a 0%, #4c3a6e 100%);
-  }
-
-  .react-grab-ai-option .name {
-    color: #adbac7;
-  }
-
-  /* Buttons dark */
   .react-grab-btn-secondary {
     background: #373e47;
     color: #adbac7;
@@ -665,37 +425,19 @@
     background: #444c56;
   }
 
-  /* Dialog footer dark */
   .react-grab-dialog-footer {
     border-top-color: #373e47;
   }
-
-  /* Load prompt dark */
-  .react-grab-load-prompt-content {
-    background: #1c2128;
-    border-color: #373e47;
-  }
-
-  .react-grab-load-prompt-content p {
-    color: #adbac7;
-  }
-
-  /* Info prompt dark */
-  .react-grab-prompt-hint {
-    color: #768390;
-  }
-
-  .react-grab-prompt-hint code {
-    background: #373e47;
-    color: #539bf5;
-  }
 }
 
-/* Responsive adjustments */
+/* ============================================
+   Responsive
+   ============================================ */
 @media (max-width: 640px) {
   .react-grab-dialog-content {
     width: 95%;
     margin: 10px;
+    max-height: 90vh;
   }
 
   .react-grab-ai-buttons {
@@ -705,5 +447,13 @@
   .react-grab-btn-copilot,
   .react-grab-btn-claude {
     width: 100%;
+  }
+
+  .react-grab-dialog-title h3 {
+    font-size: 16px;
+  }
+
+  .react-grab-file-badge {
+    display: none;
   }
 }
