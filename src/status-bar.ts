@@ -4,6 +4,7 @@ export class StatusBarManager implements vscode.Disposable {
   private statusBarItem: vscode.StatusBarItem;
   private status: 'stopped' | 'running' | 'error' = 'stopped';
   private connectedClients = 0;
+  private activePort: number | null = null;
 
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
@@ -15,9 +16,10 @@ export class StatusBarManager implements vscode.Disposable {
     this.statusBarItem.show();
   }
 
-  updateStatus(status: 'stopped' | 'running' | 'error', connectedClients: number): void {
+  updateStatus(status: 'stopped' | 'running' | 'error', connectedClients: number, port?: number): void {
     this.status = status;
     this.connectedClients = connectedClients;
+    this.activePort = port ?? null;
     this.updateDisplay();
   }
 
@@ -63,7 +65,7 @@ export class StatusBarManager implements vscode.Disposable {
   private getTooltip(): string {
     switch (this.status) {
       case 'running':
-        return `React Grab WebSocket Server Running\nConnected clients: ${this.connectedClients}\nClick for details`;
+        return `React Grab WebSocket Server Running\nPort: ${this.activePort}\nConnected clients: ${this.connectedClients}\nClick for details`;
       case 'stopped':
         return 'React Grab WebSocket Server Stopped\nClick to start';
       case 'error':

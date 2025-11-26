@@ -37,6 +37,10 @@ export class WebSocketServer {
   private wss: WSServer | null = null;
   private clients: Set<WebSocket> = new Set();
   private running = false;
+  private activePort: number | null = null;
+
+  // Supported ports for multi-instance support
+  private static readonly PORTS = [9765, 9766, 9767, 9768, 9769];
 
   constructor(
     private port: number,
@@ -51,24 +55,65 @@ export class WebSocketServer {
       return;
     }
 
+    // Try ports starting from configured port, then fallback to other available ports
+    const portsToTry = this.getPortsToTry();
+
+    for (const port of portsToTry) {
+      try {
+        await this.tryStartOnPort(port);
+        return; // Successfully started
+      } catch (error) {
+        const isPortInUse = (error as NodeJS.ErrnoException).code === 'EADDRINUSE';
+        if (isPortInUse) {
+          this.logger.info(`Port ${port} is in use, trying next port...`);
+          continue;
+        }
+        // Other errors should be thrown
+        throw error;
+      }
+    }
+
+    // All ports failed
+    throw new Error(`All ports (${portsToTry.join(', ')}) are in use`);
+  }
+
+  private getPortsToTry(): number[] {
+    // Start with configured port, then try other ports in order
+    const ports = [...WebSocketServer.PORTS];
+    const configuredIndex = ports.indexOf(this.port);
+
+    if (configuredIndex > 0) {
+      // Move configured port to the front
+      ports.splice(configuredIndex, 1);
+      ports.unshift(this.port);
+    } else if (configuredIndex === -1) {
+      // Custom port not in default list, add it first
+      ports.unshift(this.port);
+    }
+
+    return ports;
+  }
+
+  private tryStartOnPort(port: number): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        this.wss = new WSServer({ port: this.port });
+        const wss = new WSServer({ port });
 
-        this.wss.on('connection', (ws: WebSocket) => {
+        wss.on('connection', (ws: WebSocket) => {
           this.handleConnection(ws);
         });
 
-        this.wss.on('listening', () => {
+        wss.on('listening', () => {
+          this.wss = wss;
           this.running = true;
-          this.logger.info(`WebSocket server listening on port ${this.port}`);
-          this.statusBar.updateStatus('running', this.clients.size);
+          this.activePort = port;
+          this.logger.info(`WebSocket server listening on port ${port}`);
+          this.statusBar.updateStatus('running', this.clients.size, port);
           resolve();
         });
 
-        this.wss.on('error', (error) => {
-          this.logger.error('WebSocket server error', error);
-          this.statusBar.updateStatus('error', 0);
+        wss.on('error', (error: NodeJS.ErrnoException) => {
+          wss.close();
           reject(error);
         });
 
@@ -77,6 +122,10 @@ export class WebSocketServer {
         reject(error);
       }
     });
+  }
+
+  getActivePort(): number | null {
+    return this.activePort;
   }
 
   stop(): void {
@@ -92,6 +141,7 @@ export class WebSocketServer {
     this.wss.close(() => {
       this.logger.info('WebSocket server stopped');
       this.running = false;
+      this.activePort = null;
       this.statusBar.updateStatus('stopped', 0);
     });
 
@@ -123,7 +173,7 @@ export class WebSocketServer {
       workspace: {
         name: workspaceName,
         path: workspacePath,
-        port: this.port,
+        port: this.activePort!,
       },
     });
 

@@ -32,8 +32,13 @@ export function activate(context: vscode.ExtensionContext): void {
     'react-grab-copilot.startServer',
     async () => {
       if (websocketServer && !websocketServer.isRunning()) {
-        await websocketServer.start();
-        vscode.window.showInformationMessage('React Grab WebSocket server started');
+        try {
+          await websocketServer.start();
+          const activePort = websocketServer.getActivePort();
+          vscode.window.showInformationMessage(`React Grab WebSocket server started on port ${activePort}`);
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to start server: ${(error as Error).message}`);
+        }
       } else {
         vscode.window.showWarningMessage('Server is already running');
       }
@@ -58,8 +63,10 @@ export function activate(context: vscode.ExtensionContext): void {
       if (websocketServer) {
         const status = websocketServer.isRunning() ? 'running' : 'stopped';
         const connectedClients = websocketServer.getConnectedClients();
+        const activePort = websocketServer.getActivePort();
+        const portInfo = activePort ? ` | Port: ${activePort}` : '';
         vscode.window.showInformationMessage(
-          `Server Status: ${status} | Connected Clients: ${connectedClients}`
+          `Server Status: ${status}${portInfo} | Connected Clients: ${connectedClients}`
         );
       }
     }
