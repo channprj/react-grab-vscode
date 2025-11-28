@@ -200,8 +200,6 @@ Configure the extension in VSCode settings:
 
 ## 🏗️ Architecture
 
-### Clean Architecture Implementation
-
 ```
 ┌──────────────────┐     WebSocket       ┌──────────────────┐
 │                  │◄───────────────────►│                  │
@@ -264,16 +262,16 @@ pnpm run package
 
 ### Available Scripts
 
-| Script                  | Description                          |
-| ----------------------- | ------------------------------------ |
-| `pnpm run compile`      | Build TypeScript files               |
-| `pnpm run watch`        | Watch mode for development           |
-| `pnpm run package`      | Create VSIX package                  |
-| `pnpm run lint`         | Run ESLint                           |
-| `pnpm test`             | Run tests                            |
-| `pnpm browser:install`  | Install browser extension deps       |
-| `pnpm browser:build`    | Build browser extension              |
-| `pnpm browser:dev`      | Browser extension dev mode           |
+| Script                 | Description                    |
+| ---------------------- | ------------------------------ |
+| `pnpm run compile`     | Build TypeScript files         |
+| `pnpm run watch`       | Watch mode for development     |
+| `pnpm run package`     | Create VSIX package            |
+| `pnpm run lint`        | Run ESLint                     |
+| `pnpm test`            | Run tests                      |
+| `pnpm browser:install` | Install browser extension deps |
+| `pnpm browser:build`   | Build browser extension        |
+| `pnpm browser:dev`     | Browser extension dev mode     |
 
 ### Testing Locally
 
