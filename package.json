@@ -87,7 +87,10 @@
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
     "package": "pnpm vsce package --no-dependencies",
-    "publish": "pnpm vsce publish --no-dependencies"
+    "publish": "pnpm vsce publish --no-dependencies",
+    "browser:install": "pnpm --dir browser-extension install",
+    "browser:build": "pnpm --dir browser-extension build",
+    "browser:dev": "pnpm --dir browser-extension dev"
   },
   "devDependencies": {
     "@types/node": "20.x",

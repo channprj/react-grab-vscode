@@ -3,6 +3,8 @@
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+Read this in other languages: [한국어](README.ko.md)
+
 > This project is highly inspired by [@aidenybai](https://github.com/aidenybai) and his [react-grab](https://github.com/aidenybai/react-grab)
 
 Bridge between React element selection in the browser and AI assistants (GitHub Copilot & Claude Code) in VSCode.
@@ -88,116 +90,58 @@ pnpm run package
 
 ### Chrome Extension
 
-> 📘 **Detailed Guide**: For comprehensive installation and troubleshooting guide, see [CHROME_EXTENSION_GUIDE.md](CHROME_EXTENSION_GUIDE.md)
+#### Build and Install
 
-#### Option 1: Load from Source (Development)
-
-1. **Clone or Download the Repository**
+1. **Build the Extension**
 
    ```bash
-   git clone https://github.com/channprj/react-grab-vscode.git
-   cd react-grab-vscode
+   # Install dependencies and build
+   pnpm browser:install
+   pnpm browser:build
    ```
 
-2. **Open Chrome Extensions Page**
+2. **Load in Chrome**
 
-   - Open Chrome browser
    - Navigate to `chrome://extensions/`
-   - Or use Menu: **⋮** → **More tools** → **Extensions**
+   - Enable "Developer mode" (top right)
+   - Click "Load unpacked"
+   - Select `browser-extension/dist` folder
 
-3. **Enable Developer Mode**
-
-   - Toggle the "Developer mode" switch in the top right corner
-   - You'll see additional buttons appear
-
-4. **Load the Extension**
-
-   - Click **"Load unpacked"** button
-   - Navigate to the cloned repository folder
-   - Select the `browser-extension` folder specifically:
-     ```
-     react-grab-vscode/
-     └── browser-extension/  ← Select this folder
-         ├── manifest.json
-         ├── content-script.js
-         ├── inject.js
-         ├── background.js
-         ├── popup.html
-         ├── popup.js
-         └── styles.css
-     ```
-   - Click "Select Folder"
-
-5. **Verify Installation**
-
-   - The extension "React Grab to Copilot Bridge" should appear in your extensions list
-   - You'll see an extension icon in the toolbar (puzzle piece icon area)
-   - Pin it for easy access by clicking the pin icon
-
-6. **Check Extension Status**
-   - Click the extension icon to see connection status
-   - It should show "Disconnected from VSCode" initially
-   - Once VSCode extension is running, it will show "Connected"
-
-#### Option 2: Load in Edge Browser
-
-1. **For Microsoft Edge Users**
+3. **Load in Edge**
    - Navigate to `edge://extensions/`
    - Enable "Developer mode" (left sidebar)
    - Click "Load unpacked"
-   - Select the `browser-extension` folder
-   - Same process as Chrome
+   - Select `browser-extension/dist` folder
+
+#### Development Mode
+
+For auto-rebuild during development:
+
+```bash
+pnpm browser:dev
+```
 
 #### Updating the Extension
 
-After making changes to the browser extension code:
+After code changes:
 
-1. Go to `chrome://extensions/`
-2. Find "React Grab to Copilot Bridge"
-3. Click the **refresh** icon (↻) on the extension card
-4. Reload any open tabs to apply changes
+1. Rebuild: `pnpm browser:build`
+2. Go to `chrome://extensions/`
+3. Click the refresh icon (↻) on the extension card
+4. Reload any open tabs
 
-#### Troubleshooting Chrome Extension
+#### Troubleshooting
 
 **Extension doesn't appear:**
 
-- Ensure you selected the `browser-extension` folder, not the root folder
-- Check for errors in the extension card (red error button)
-- Click "Errors" to see detailed error messages
+- Ensure you selected `browser-extension/dist` folder (not `browser-extension`)
+- Check for errors in the extension card
 
 **Connection issues:**
 
 - Verify VSCode extension is running (check status bar)
 - Check if port 9765 is not blocked by firewall
 - Open Chrome DevTools Console (F12) and look for `[React Grab Bridge]` messages
-- Try reloading the extension and the web page
-
-**Debugging the Extension:**
-
-1. **Background Script (Service Worker)**
-
-   - Go to `chrome://extensions/`
-   - Click "Service Worker" link on the extension card
-   - Opens DevTools for background script
-
-2. **Content Script**
-
-   - Open DevTools on any webpage (F12)
-   - Check Console for content script logs
-   - Look for `[React Grab Bridge]` prefixed messages
-
-3. **Popup**
-   - Right-click the extension icon
-   - Select "Inspect popup"
-   - Opens DevTools for the popup
-
-#### File Permissions
-
-If you encounter permission issues, ensure the files have proper permissions:
-
-```bash
-chmod -R 755 browser-extension/
-```
 
 ## 📖 Usage
 
@@ -278,18 +222,19 @@ Configure the extension in VSCode settings:
 
 ```
 react-grab-vscode/
-├── src/                    # VSCode Extension source
-│   ├── domain/             # Business logic
-│   ├── application/        # Use cases
-│   ├── infrastructure/     # External interfaces
-│   └── extension.ts        # Entry point
-├── browser-extension/      # Chrome Extension
-│   ├── manifest.json       # Extension manifest
-│   ├── content-script.js   # Page interaction
-│   └── styles.css          # UI styles
-├── test/                   # Test files
-├── package.json            # Node dependencies
-└── README.md               # This file
+├── src/                       # VSCode Extension source
+│   ├── extension.ts           # Entry point
+│   ├── websocket-server.ts    # WebSocket server
+│   ├── copilot-integration.ts # AI integration
+│   ├── status-bar.ts          # Status bar UI
+│   └── utils/                 # Utilities
+├── browser-extension/         # Chrome Extension
+│   ├── src/                   # Source files (React + TypeScript)
+│   ├── public/                # Static assets
+│   ├── dist/                  # Build output (load this in Chrome)
+│   └── vite.config.ts         # Vite configuration
+├── package.json               # Node dependencies
+└── README.md                  # This file
 ```
 
 ## 🛠️ Development
@@ -319,13 +264,16 @@ pnpm run package
 
 ### Available Scripts
 
-| Script             | Description                |
-| ------------------ | -------------------------- |
-| `pnpm run compile` | Build TypeScript files     |
-| `pnpm run watch`   | Watch mode for development |
-| `pnpm run package` | Create VSIX package        |
-| `pnpm run lint`    | Run ESLint                 |
-| `pnpm test`        | Run tests                  |
+| Script                  | Description                          |
+| ----------------------- | ------------------------------------ |
+| `pnpm run compile`      | Build TypeScript files               |
+| `pnpm run watch`        | Watch mode for development           |
+| `pnpm run package`      | Create VSIX package                  |
+| `pnpm run lint`         | Run ESLint                           |
+| `pnpm test`             | Run tests                            |
+| `pnpm browser:install`  | Install browser extension deps       |
+| `pnpm browser:build`    | Build browser extension              |
+| `pnpm browser:dev`      | Browser extension dev mode           |
 
 ### Testing Locally
 
@@ -335,7 +283,8 @@ pnpm run package
    - The extension will be active in the new window
 
 2. **Chrome Extension**
-   - Load unpacked extension from `browser-extension` folder
+   - Build with `pnpm browser:build`
+   - Load unpacked extension from `browser-extension/dist` folder
    - Open any React application
    - Test component selection by holding `opt` (Mac) or `alt` (Windows/Linux) and clicking
 
@@ -353,7 +302,7 @@ MIT License - see the [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- [react-grab](https://github.com/nicholasxjy/react-grab) - Inspiration for React fiber inspection approach
+- [react-grab](https://github.com/aidenybai/react-grab) - Inspiration for React fiber inspection approach
 - [GitHub Copilot](https://github.com/features/copilot) - AI pair programmer
 - [Claude Code](https://claude.ai) - AI coding assistant
 - VSCode Extension API documentation
